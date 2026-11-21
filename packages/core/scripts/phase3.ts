@@ -344,6 +344,20 @@ check(
   'voltou a "proposed"',
 )
 
+section('9b) tipo de mensagem não suportado')
+await orch.handle({
+  type: 'message',
+  channel: 'whatsapp',
+  channelMsgId: 'vid1',
+  fromPhone: OWNER,
+  receivedAt: now.toISOString(),
+  unsupportedType: 'video',
+})
+check(
+  (await toOwner()).includes('Ainda não sei ler'),
+  'vídeo recebe resposta educada, sem criar item',
+)
+
 section('10) remover contato')
 await say('remove contato Renato')
 check((await toOwner()).includes('Removi'), 'contato removido')

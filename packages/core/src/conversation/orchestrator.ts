@@ -227,6 +227,14 @@ export class Orchestrator {
       return
     }
 
+    // Vídeo, figurinha, localização…: não sei ler, mas aviso em vez de ficar em silêncio (R1.1).
+    if (msg.unsupportedType) {
+      await this.say(
+        'Ainda não sei ler esse tipo de mensagem. Pode mandar texto, imagem, PDF ou áudio? 🙂',
+      )
+      return
+    }
+
     // Comandos exatos não gastam IA.
     if (msg.text && !msg.media) {
       const cmd = parseCommand(msg.text)

@@ -11,7 +11,13 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "relay:test": "pnpm --filter @pingo/relay test",
+    "relay:deploy": "AWS_PROFILE=${AWS_PROFILE:-publishing} pnpm --filter @pingo/relay deploy",
+    "relay:diff": "AWS_PROFILE=${AWS_PROFILE:-publishing} pnpm --filter @pingo/relay diff",
+    "relay:smoke": "AWS_PROFILE=${AWS_PROFILE:-publishing} pnpm --filter @pingo/relay smoke",
+    "relay:set-secret": "AWS_PROFILE=${AWS_PROFILE:-publishing} pnpm --filter @pingo/relay set-secret",
+    "relay:pair-code": "AWS_PROFILE=${AWS_PROFILE:-publishing} pnpm --filter @pingo/relay pair-code"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

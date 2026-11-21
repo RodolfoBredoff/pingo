@@ -171,6 +171,19 @@ Lambda `send-reminder` é o alvo do Scheduler: monta a mensagem (ou template) e 
 ### Custo estimado
 Lambda, API Gateway, SQS, DynamoDB, EventBridge Scheduler e S3 ficam em centavos ou dentro da camada gratuita em uso pessoal. O custo relevante é das conversas da Meta, não da AWS. Valores exatos devem ser conferidos nas páginas de preço no momento do deploy.
 
+### Como o relay foi construído (Fase 5)
+
+- **Código:** `apps/relay`. Os handlers só falam com portas (`Db`, `Queue`, `Secrets`, `Files`, `Scheduler`, `WhatsApp`), então rodam igual com a AWS (`src/aws`) e com versões em memória (`src/testing`). Contrato HTTP em `packages/shared/src/relay.ts`.
+- **Lista de permitidos com papéis:** `ALLOW#<telefone>` guarda `owner` ou `contact`. Todos os cadastrados (inclusive contatos que ainda não aceitaram) podem responder; quem não está na lista é ignorado em silêncio. O app envia a lista inteira em `PUT /allowlist`.
+- **Envio:** `POST /outbox` aceita `{to, message, fallback?}`. Dentro da janela de 24 h (com 5 min de folga) vai mensagem livre; fora, vai o `fallback` (modelo). Sem `fallback`, responde 409 `window_closed`. O relay só envia para números da lista.
+- **Fila:** FIFO, um grupo por telefone, visibilidade de 120 s (o app precisa dar ack logo depois de gravar). Cinco recebimentos sem ack levam a mensagem à DLQ e disparam alarme.
+- **App offline:** o app é considerado offline se o relay não o vê há 90 s (cada long poll renova).
+- **Pareamento:** `pnpm relay:pair-code` grava o hash de um código de 20 caracteres, válido por 10 min e de uso único. Parear de novo revoga o token anterior.
+- **Número do Brasil:** a Meta às vezes entrega celulares sem o 9º dígito; o relay sempre normaliza para a forma com o 9.
+- **Tipos não suportados:** vídeo, figurinha, localização etc. chegam como evento com `unsupportedType`, para o app responder com educação (R1.1).
+- **Segredos:** `/pingo/meta/{app-secret,access-token,phone-number-id,verify-token}` no SSM, criados só por `pnpm relay:set-secret`.
+- **Limites de custo:** sem AWS Budgets por enquanto, porque a conta `publishing` tem outros recursos e um orçamento da conta inteira não serve. Alternativa: ativar a tag de custo `app` e criar um orçamento filtrado por ela.
+
 ### Limitações assumidas
 - Long polling usa uma Lambda esperando até 20 s por chamada enquanto o app está aberto. Aceitável no MVP; se o custo ou a latência incomodarem, trocar por WebSocket API.
 - Single-tenant: uma pilha por dono. Simples e isolado; multiusuário fica fora.
@@ -336,7 +349,7 @@ packages/
 
 ## 13. Decisões em aberto
 
-1. Perfil/região da AWS a usar (existe configuração em `~/.aws`; confirmar perfil e conta).
+1. ~~Perfil/região da AWS~~ Decidido: conta `publishing` (025843049355), `sa-east-1`, perfil SSO `publishing`.
 2. Número de telefone dedicado ao WhatsApp Business.
 3. Mascote ou ilustração própria (não reaproveitar o pato do vídeo).
 4. Domínio próprio é opcional: o API Gateway fornece uma URL HTTPS; domínio só se quiser marca.

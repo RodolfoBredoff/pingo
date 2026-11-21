@@ -63,16 +63,20 @@ Local-first: o app funciona sozinho (simulador + IA) antes de qualquer AWS ou Wh
 - **Não automatizável (precisa de você):** as janelas nativas de escolher arquivo e pasta. Teste à mão: Ajustes → Exportar, Importar e Backup automático
 - **Decisões:** o backup não é criptografado e não leva a chave do OpenRouter; "apagar" não mexe em backups que você salvou em suas pastas
 
-## Fase 5: Relay AWS (R9, R11)
-- [ ] 5.1 Projeto CDK em `apps/relay`; `cdk bootstrap` na conta/região escolhida
-- [ ] 5.2 Tabela DynamoDB, fila SQS FIFO + DLQ, bucket S3 com lifecycle de 1 dia, parâmetros SSM
-- [ ] 5.3 Lambda do webhook: verificação, assinatura, idempotência, allowlist, janela de 24 h, "Recebi!" quando offline
-- [ ] 5.4 Lambdas do dispositivo: `pair`, `inbox` (long poll), `inbox/ack`, `outbox`, `media`, `allowlist`, `reminders`, `me`
-- [ ] 5.5 Lambda `send-reminder` e criação de schedules únicos no EventBridge Scheduler
-- [ ] 5.6 Autenticação por token de dispositivo (hash), limites de taxa, retenção de logs de 14 dias
-- [ ] 5.7 Alarmes de custo e de falha (SNS ou e-mail)
-- [ ] 5.8 Comando `pnpm relay:set-secret` para gravar credenciais Meta no SSM sem expô-las
-- [ ] 5.9 Teste do relay com chamadas simuladas, sem Meta
+## Fase 5: Relay AWS (R9, R11) (concluída; falta só o e-mail dos alarmes e as credenciais reais da Meta)
+Conta `publishing` (025843049355), região `sa-east-1`, pilha `PingoRelay`. A trava em `bin/relay.ts` e `scripts/lib/aws.ts` recusa qualquer outra conta.
+- [x] 5.1 Projeto CDK em `apps/relay`; `cdk bootstrap` feito na conta/região
+- [x] 5.2 DynamoDB (TTL), SQS FIFO + DLQ, SQS de falhas de lembrete, bucket S3 privado com expiração de 1 dia, grupo do Scheduler. Credenciais Meta no SSM (SecureString, fora do CDK)
+- [x] 5.3 Webhook: verificação GET, assinatura HMAC sobre os bytes brutos (falha fechada), idempotência, lista de permitidos, janela de 24 h, "Recebi!" no máximo 1 vez a cada 10 min com o app offline
+- [x] 5.4 Rotas do dispositivo: `pair`, `inbox` (long poll de até 20 s), `inbox/ack`, `outbox`, `media`, `allowlist`, `reminders` (PUT/DELETE), `me`
+- [x] 5.5 `send-reminder` e agendamentos únicos no EventBridge Scheduler (3 tentativas, fila de falhas, se apaga depois de rodar)
+- [x] 5.6 Token de dispositivo guardado como hash; limites de taxa (20 req/s geral, 1 req/s no pareamento); logs de 14 dias, sem conteúdo de mensagem
+- [x] 5.7 Alarmes (SNS): fila de falhas da entrada, lembrete não entregue, erro no webhook, erro no `send-reminder`, volume anormal de chamadas. **Pendente:** informar o e-mail para assinar o tópico
+- [x] 5.8 `pnpm relay:set-secret <nome>`: valor digitado sem eco, direto para o SSM; `--generate` cria o token de verificação
+- [x] 5.9 `pnpm relay:test` (130 checagens, handlers com AWS e Meta em memória) e `pnpm relay:smoke [--fire]` (chamadas reais à AWS, incluindo um lembrete que dispara de verdade)
+- **Decisões:** a lista de permitidos tem papéis (`owner` e `contact`); só o dono recebe "Recebi!". Todo envio exige número da lista. O pareamento usa um código de uso único gerado com `pnpm relay:pair-code` (quem tem credencial AWS autoriza o dispositivo). Celular brasileiro sem o 9º dígito é normalizado. A API da Meta é a v25.0 (configurável com `GRAPH_API_VERSION`)
+- **Pendentes de verificação com a Meta real (Fase 6):** formato exato dos modelos e botões de resposta rápida, áudio OGG/Opus na extração, e o orçamento de custo (ver go-live)
+- Os valores em `/pingo/meta/*` hoje são de TESTE (criados pelo smoke). Troque com `pnpm relay:set-secret` antes de ligar a Meta
 
 ## Fase 6: Canal WhatsApp (R9)
 - [ ] 6.1 Cadastro Meta e número de teste (ver `go-live.md`); submeter templates (`boas_vindas`, `lembrete_item`, `oferta_responsabilidade`)

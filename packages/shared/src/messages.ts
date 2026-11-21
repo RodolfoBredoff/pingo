@@ -25,6 +25,8 @@ export interface IncomingMessage {
   receivedAt: string
   text?: string
   media?: MediaRef
+  /** Tipo que o Pingo não sabe ler (vídeo, figurinha, localização…): o app responde com educação. */
+  unsupportedType?: string
 }
 
 export interface IncomingButtonPress {
@@ -82,4 +84,10 @@ export type OutgoingMessage =
   | { type: 'buttons'; text: string; buttons: ReplyButton[] }
   | { type: 'list'; text: string; buttonLabel: string; rows: ListRow[] }
   | { type: 'card'; card: ItemCard }
-  | { type: 'template'; name: TemplateName; variables: string[] }
+  | {
+      type: 'template'
+      name: TemplateName
+      variables: string[]
+      /** Valores devolvidos quando o usuário toca nos botões de resposta rápida do modelo, em ordem. */
+      buttonPayloads?: string[]
+    }

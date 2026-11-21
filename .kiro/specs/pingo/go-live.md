@@ -5,23 +5,23 @@ Confira valores, limites e preços na documentação oficial da Meta, da AWS e d
 ## 1. Contas e acessos
 - [ ] Conta OpenRouter com saldo pequeno e limite de gasto; chave criada para o Pingo
 - [ ] Privacidade do OpenRouter: bloquear provedores que retêm ou treinam com dados
-- [ ] AWS: perfil/SSO configurado (`aws sts get-caller-identity` funcionando), região `sa-east-1` confirmada
-- [ ] AWS: orçamento mensal com alerta (AWS Budgets)
+- [x] AWS: perfil SSO `publishing` (conta 025843049355), região `sa-east-1` confirmada
+- [ ] AWS: orçamento mensal com alerta (AWS Budgets). A conta `publishing` é compartilhada: ative a tag de custo `app` e filtre o orçamento por ela
 - [ ] Conta Meta Business criada e verificada
 - [ ] App na Meta for Developers com produto WhatsApp
 - [ ] Número de telefone dedicado (não ativo no WhatsApp comum)
 - [ ] Token permanente (usuário do sistema) e app secret guardados só no SSM
 
 ## 2. AWS
-- [ ] `cdk bootstrap` executado
-- [ ] `cdk deploy` da pilha do relay sem erros
+- [x] `cdk bootstrap` executado
+- [x] `cdk deploy` da pilha do relay sem erros
 - [ ] Credenciais Meta gravadas com `pnpm relay:set-secret`
-- [ ] URL do API Gateway anotada
-- [ ] Bucket S3 privado com lifecycle de 1 dia
-- [ ] Fila SQS com DLQ e retenção definida
-- [ ] Retenção de logs em 14 dias; nenhum log com texto de mensagem
-- [ ] Alarmes de custo e de falha de lembrete ativos
-- [ ] Teste de pareamento do app com o relay
+- [x] URL do API Gateway anotada: `https://r5ydartzwh.execute-api.sa-east-1.amazonaws.com` (webhook em `/wa/webhook`)
+- [x] Bucket S3 privado com lifecycle de 1 dia
+- [x] Fila SQS com DLQ e retenção definida
+- [x] Retenção de logs em 14 dias; nenhum log com texto de mensagem
+- [ ] Alarmes de falha ativos (criados); falta assinar o e-mail do tópico `PingoRelay-Alerts`
+- [x] Teste de pareamento com o relay (`pnpm relay:smoke`); o pareamento pelo app é da Fase 6
 
 ## 3. WhatsApp
 - [ ] Webhook configurado (URL do relay + token de verificação); campo `messages` assinado
@@ -31,7 +31,7 @@ Confira valores, limites e preços na documentação oficial da Meta, da AWS e d
 - [ ] Teste: texto, imagem, PDF, áudio, botões, lista, template
 - [ ] Teste: app fechado → "Recebi!" → abrir app → proposta chega
 - [ ] Teste: lembrete com app fechado chega no horário
-- [ ] Teste: número desconhecido recebe uma resposta e depois é ignorado
+- [ ] Teste: número desconhecido é ignorado em silêncio (decisão R6.3; verificado no relay, falta com a Meta real)
 
 ## 4. App
 - [ ] Chave OpenRouter gravada no keychain pelo app
