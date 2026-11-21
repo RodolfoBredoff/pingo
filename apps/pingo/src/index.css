@@ -1,0 +1,199 @@
+@import 'tailwindcss';
+
+/* Fontes empacotadas no app (sem requisição externa). */
+@import '@fontsource-variable/bricolage-grotesque/wdth.css';
+@import '@fontsource-variable/fraunces/wght-italic.css';
+@import '@fontsource-variable/geist/wght.css';
+@import '@fontsource-variable/geist-mono/wght.css';
+
+/* Tokens (design.md §10) expostos como utilitários do Tailwind. */
+@theme {
+  --font-display: 'Bricolage Grotesque Variable', system-ui, sans-serif;
+  --font-serif: 'Fraunces Variable', Georgia, serif;
+  --font-sans: 'Geist Variable', system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-primary: var(--primary);
+  --color-sun: var(--sun);
+  --color-mint: var(--mint);
+  --color-sky: var(--sky);
+  --color-berry: var(--berry);
+  --color-line: var(--line);
+
+  --shadow-card: 0 1px 0 rgb(0 0 0 / 0.03), 0 14px 34px -14px var(--shadow-tint);
+  --shadow-pop: 0 2px 0 rgb(0 0 0 / 0.04), 0 22px 50px -18px var(--shadow-tint);
+
+  --animate-blink: blink 5s infinite;
+  --animate-drift-a: drift-a 22s ease-in-out infinite alternate;
+  --animate-drift-b: drift-b 28s ease-in-out infinite alternate;
+  --animate-drift-c: drift-c 34s ease-in-out infinite alternate;
+  --animate-pulse-soft: pulse-soft 2.2s ease-in-out infinite;
+  --animate-ping-ring: ping-ring 2.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+
+  @keyframes blink {
+    0%,
+    92%,
+    100% {
+      transform: scaleY(1);
+    }
+    95% {
+      transform: scaleY(0.1);
+    }
+  }
+  @keyframes drift-a {
+    to {
+      transform: translate(8vw, 6vh) scale(1.15);
+    }
+  }
+  @keyframes drift-b {
+    to {
+      transform: translate(-7vw, -5vh) scale(1.1);
+    }
+  }
+  @keyframes drift-c {
+    to {
+      transform: translate(5vw, -8vh) scale(0.92);
+    }
+  }
+  @keyframes pulse-soft {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+  @keyframes ping-ring {
+    0% {
+      transform: scale(0.7);
+      opacity: 0.7;
+    }
+    80%,
+    100% {
+      transform: scale(1.9);
+      opacity: 0;
+    }
+  }
+}
+
+:root {
+  --bg: #fff6e5;
+  --surface: #ffffff;
+  --surface-2: #fff0d6;
+  --ink: #2a1d13;
+  --primary: #ff5a3c;
+  --sun: #ffc83d;
+  --mint: #2bc4a0;
+  --sky: #5b8cff;
+  --berry: #b45cff;
+  --line: rgb(42 29 19 / 0.1);
+  --shadow-tint: rgb(42 29 19 / 0.28);
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg: #17120e;
+  --surface: #231c16;
+  --surface-2: #2e251d;
+  --ink: #fff1dc;
+  --primary: #ff7a5c;
+  --sun: #ffd361;
+  --mint: #43d9b5;
+  --sky: #7fa3ff;
+  --berry: #c985ff;
+  --line: rgb(255 241 220 / 0.12);
+  --shadow-tint: rgb(0 0 0 / 0.7);
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #17120e;
+    --surface: #231c16;
+    --surface-2: #2e251d;
+    --ink: #fff1dc;
+    --primary: #ff7a5c;
+    --sun: #ffd361;
+    --mint: #43d9b5;
+    --sky: #7fa3ff;
+    --berry: #c985ff;
+    --line: rgb(255 241 220 / 0.12);
+    --shadow-tint: rgb(0 0 0 / 0.7);
+    color-scheme: dark;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* Título que "estica": a largura da Bricolage é um eixo variável. */
+.stretch-title {
+  font-family: var(--font-display);
+  font-stretch: 78%;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  transition:
+    font-stretch 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2),
+    letter-spacing 0.5s ease;
+}
+.stretch-title:hover {
+  font-stretch: 100%;
+  letter-spacing: -0.015em;
+}
+
+/* Barras de rolagem discretas */
+.scroll-soft {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ink) 22%, transparent) transparent;
+}
+
+/* Foco visível e consistente (acessibilidade) */
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 70%, transparent);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+button {
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* Quem pede menos movimento não vê a deriva do fundo nem pulsos. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+html[data-reduce-motion='on'] *,
+html[data-reduce-motion='on'] *::before,
+html[data-reduce-motion='on'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+}

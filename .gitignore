@@ -1,0 +1,37 @@
+# dependências e builds
+node_modules/
+dist/
+build/
+.vite/
+coverage/
+
+# Tauri / Rust
+**/src-tauri/target/
+**/src-tauri/gen/
+
+# AWS CDK
+cdk.out/
+.cdk.staging/
+
+# segredos e ambiente (NUNCA commitar)
+.env
+.env.*
+!.env.example
+
+# dados locais
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+backups/
+
+# sistema e editor
+.DS_Store
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# material de referência (vídeo do anúncio original)
+*.mp4
+.shots/

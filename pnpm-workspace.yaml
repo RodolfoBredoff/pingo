@@ -1,0 +1,7 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# esbuild baixa seu binário no pós-instalação; é seguro e necessário (Vite, tsx, drizzle-kit).
+allowBuilds:
+  esbuild: true

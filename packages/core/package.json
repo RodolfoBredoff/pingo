@@ -1,0 +1,32 @@
+{
+  "name": "@pingo/core",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json",
+    "db:generate": "drizzle-kit generate && node scripts/embed-migrations.mjs",
+    "db:embed": "node scripts/embed-migrations.mjs",
+    "smoke": "tsx --env-file=../../.env.local scripts/smoke.ts",
+    "compare": "tsx --env-file=../../.env.local scripts/compare-models.ts",
+    "fixtures:media": "bash scripts/build-fixture-media.sh",
+    "phase3": "tsx scripts/phase3.ts",
+    "phase4": "tsx scripts/phase4.ts",
+    "e2e": "tsx --env-file=../../.env.local scripts/e2e.ts",
+    "models:suggest": "tsx scripts/models-suggest.ts"
+  },
+  "dependencies": {
+    "@pingo/shared": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "drizzle-kit": "^0.31.11",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3"
+  }
+}

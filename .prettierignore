@@ -1,0 +1,8 @@
+node_modules
+dist
+cdk.out
+**/src-tauri/target
+**/src-tauri/gen
+pnpm-lock.yaml
+.kiro
+*.md
