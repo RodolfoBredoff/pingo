@@ -1,5 +1,5 @@
 {
-  "app": "pnpm exec tsx bin/relay.ts",
+  "app": "pnpm exec tsx --env-file-if-exists=../../.env.local bin/relay.ts",
   "watch": { "include": ["**"], "exclude": ["node_modules", "cdk.out"] },
   "context": {
     "pingoAccount": "025843049355",

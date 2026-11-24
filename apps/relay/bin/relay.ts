@@ -17,6 +17,8 @@ if (active && active !== account) {
 
 new RelayStack(app, 'PingoRelay', {
   env: { account, region },
-  alertEmail: app.node.tryGetContext('alertEmail') as string | undefined,
+  // Fica em .env.local (fora do git); `-c alertEmail=...` também funciona.
+  alertEmail:
+    (app.node.tryGetContext('alertEmail') as string | undefined) ?? process.env.PINGO_ALERT_EMAIL,
   description: 'Pingo: relay do WhatsApp (webhook, fila, lembretes). Sem site, só API.',
 })
