@@ -1,6 +1,18 @@
-# Plano de implementação: Pingo
+# Plano de tarefas: Pingo
 
-Local-first: o app funciona sozinho (simulador + IA) antes de qualquer AWS ou WhatsApp. Nada aqui foi executado ainda.
+**Revisão de 23/11/2026.** O Pingo vira um app de celular (Android primeiro) alimentado pelo menu Compartilhar, sem Meta. As Fases 0 a 5 estão feitas e continuam valendo (núcleo, IA, interface, agenda, privacidade). A Fase 5 (relay AWS) foi pausada e a pilha destruída. As Fases 6 em diante são novas.
+
+Regras de ouro desta etapa: **provar o risco antes de construir** (Fase 6) e **custo mínimo na AWS** (hoje nada roda lá; ver R13).
+
+## Roteiro de amanhã (começa aqui)
+
+1. **6.0 Ambiente.** Rode `pnpm android:doctor` e resolva o que aparecer, na ordem. O Rust já está pronto (os 4 alvos Android foram instalados). Falta o Android Studio e o celular.
+2. **6.1 Protótipo 1.** O app abre no celular via USB.
+3. **6.2 Protótipo 2.** Compartilhar uma foto e uma nota de voz do WhatsApp para o app.
+4. **6.3 Protótipo 3.** Notificação agendada que sobrevive ao app fechado e ao reinício.
+5. **Parada de verificação:** se 6.2 ou 6.3 falharem sem plano B, paramos e reavaliamos antes de seguir.
+
+**O que preciso de você amanhã:** o celular Android com cabo USB, a opção "Depuração USB" ligada (Configurações → Sobre o telefone → toque 7 vezes em "Número da versão" → Opções do desenvolvedor), e o Android Studio instalado e aberto uma vez.
 
 ## Fase 0: Fundações (concluída)
 - [x] 0.1 Instalar pnpm; criar monorepo (`apps/pingo`, `apps/relay`, `packages/core`, `packages/shared`) com TypeScript, ESLint e Prettier
@@ -52,18 +64,18 @@ Local-first: o app funciona sozinho (simulador + IA) antes de qualquer AWS ou Wh
 - [x] 3.7 Bandeja do sistema (Abrir/Sair), fechar a janela só a esconde, clique no Dock reabre, início com o computador (Ajustes)
 - Verificado: `pnpm --filter @pingo/core phase3` (determinístico, sem custo, 43 checagens) e `pnpm --filter @pingo/core e2e` (IA real, inclui a pergunta "o que tenho sexta?")
 - Autoteste no app real (`VITE_PINGO_SELFTEST=1 pnpm tauri dev`): 39 verificações ok, sem erro de JavaScript. Cobre comandos, contato com oferta e aceite, lembrete disparado com o relógio adiantado, Feito pela Agenda e remoção de contato.
-- **Ressalva:** com a janela escondida o WebView pode atrasar os timers (App Nap). Confirmar no piloto; se atrasar, o lembrete na nuvem (Fase 6) cobre.
+- **Ressalva:** com a janela escondida o WebView pode atrasar os timers (App Nap). Confirmar no piloto; no Android os lembretes passam a ser do sistema (Fase 9).
 
-## Fase 4: Privacidade e backup (R7, R11) (concluída, exceto 4.4 que passou para a Fase 6)
+## Fase 4: Privacidade e backup (R7, R11) (concluída; a 4.4 voltou como 8.6)
 - [x] 4.1 Cadastro em dois passos (nome e WhatsApp opcional, depois o aviso de privacidade com aceite). Quem já usava antes, ou se o texto mudar (`CONSENT_VERSION`), vê só o aviso
 - [x] 4.2 "Apagar meus dados": em Ajustes (digitar APAGAR; opção de remover a chave do cofre) e pelo chat ("apagar meus dados" + botão que vale 2 min). Apaga o banco local e reinicia no cadastro; a nuvem entra na Fase 6
 - [x] 4.3 Backup em arquivo `.json` versionado (exportar, importar, automático diário ou semanal numa pasta escolhida, mantém os 7 mais recentes). A importação valida tudo antes de tocar no banco e restaura os dados anteriores se falhar no meio
-- [ ] 4.4 Limpeza de mídia local antiga: **movida para a Fase 6**. Hoje nenhuma mídia é gravada em disco (imagem, PDF e áudio vão direto para a IA e somem); só passa a existir quando o WhatsApp entrar
+- [ ] 4.4 Limpeza de mídia local antiga: **passou para a 8.6**. Só passa a haver mídia em disco com o Compartilhar (arquivos temporários em `cache/shared`)
 - Verificado: `pnpm --filter @pingo/core phase4` (sem custo, 33 checagens) e o autoteste no app real, incluindo "apagar meus dados" pelo chat com recarga da página
 - **Não automatizável (precisa de você):** as janelas nativas de escolher arquivo e pasta. Teste à mão: Ajustes → Exportar, Importar e Backup automático
 - **Decisões:** o backup não é criptografado e não leva a chave do OpenRouter; "apagar" não mexe em backups que você salvou em suas pastas
 
-## Fase 5: Relay AWS (R9, R11) (concluída; falta só o e-mail dos alarmes e as credenciais reais da Meta)
+## Fase 5: Relay AWS (R9, R11) (concluída e depois PAUSADA: pilha destruída em 23/11/2026; ver Fase 16)
 Conta `publishing` (025843049355), região `sa-east-1`, pilha `PingoRelay`. A trava em `bin/relay.ts` e `scripts/lib/aws.ts` recusa qualquer outra conta.
 - [x] 5.1 Projeto CDK em `apps/relay`; `cdk bootstrap` feito na conta/região
 - [x] 5.2 DynamoDB (TTL), SQS FIFO + DLQ, SQS de falhas de lembrete, bucket S3 privado com expiração de 1 dia, grupo do Scheduler. Credenciais Meta no SSM (SecureString, fora do CDK)
@@ -78,44 +90,121 @@ Conta `publishing` (025843049355), região `sa-east-1`, pilha `PingoRelay`. A tr
 - **Pendentes de verificação com a Meta real (Fase 6):** formato exato dos modelos e botões de resposta rápida, áudio OGG/Opus na extração, e o orçamento de custo (ver go-live)
 - Os valores em `/pingo/meta/*` hoje são de TESTE (criados pelo smoke). Troque com `pnpm relay:set-secret` antes de ligar a Meta
 
-## Fase 6: Canal WhatsApp (R9) (em andamento: o lado do app está pronto; falta a Meta)
-- [ ] 6.1 Cadastro Meta e número de teste (ver `go-live.md`, que agora traz o texto exato dos 4 modelos a submeter)
-- [ ] 6.0 Limpeza de mídia local antiga (veio da 4.4): o app não grava mídia em disco (ela passa pela memória e vai à IA), então por enquanto não há o que limpar. Reavaliar se um dia o app guardar originais
-- [x] 6.2 `RelayChannel` (`packages/core/src/channels`): pareamento, long polling com ack só depois de tratar, reconexão com espera crescente, envio, mídia por link temporário. `MultiChannel` junta a conversa do app e o WhatsApp
-- [x] 6.2b No app: Ajustes → WhatsApp (número do dono, endereço do relay, código de pareamento, estado da conexão, desligar). Token no cofre do sistema; fala com a AWS pelo plugin HTTP do Tauri, liberado só para `*.execute-api.sa-east-1.amazonaws.com` e o S3 de `sa-east-1`
-- [x] 6.3a Lista de números permitidos sincronizada ao conectar e a cada contato adicionado ou removido
-- [ ] 6.3b Lembretes na nuvem (criar/cancelar ao confirmar, editar, concluir). As rotas e o `RelayChannel.putReminder/deleteReminder` existem; falta ligar ao orquestrador
-- [ ] 6.4 Idempotência de lembretes entre local e nuvem (depende da 6.3b)
-- [x] 6.5 Contato aceita ou recusa pelos botões do modelo (resposta rápida chega como botão); verificado no teste integrado
-- [x] 6.6 "Apagar meus dados" também na nuvem: apaga o relay primeiro e, se falhar, não apaga nada local
-- [ ] 6.7 Testes ponta a ponta com o número de teste da Meta
-- [ ] 6.8 (Opcional) Cartão como imagem via satori/resvg
+## Fase 6: Prontidão e protótipos Android (provar antes de construir)
+Cada protótipo é pequeno, descartável e termina com uma decisão registrada em `design.md`. Resultados esperados e planos B abaixo.
+
+- [ ] 6.0 **Ambiente.** Android Studio (`brew install --cask android-studio`, abrir uma vez para baixar o SDK), SDK Platform (API 35 ou mais nova), Platform-Tools, Command-line Tools, Build-Tools e NDK. No `~/.zshrc`: `JAVA_HOME` (o JDK do Android Studio), `ANDROID_HOME`, `NDK_HOME`. Celular com Depuração USB. Pronto quando `pnpm android:doctor` terminar verde. *(Alvos Rust do Android: feito em 23/11/2026. Disco: ~22 GB livres; use o celular e evite o emulador.)*
+- [ ] 6.1 **Protótipo 1: o app roda no Android.** `pnpm tauri android init`, ícones, `pnpm tauri android dev`. Pronto quando: onboarding → conversa funciona, o SQLite grava e lê, as fontes carregam e `dev_log` aparece no `adb logcat`. Inclui separar as dependências do Cargo por plataforma (`keyring`, autostart, persisted-scope, bandeja) sem quebrar o desktop. *Plano B: ajustar versões do Tauri/NDK.*
+- [ ] 6.2 **Protótipo 2: Compartilhar.** Plugin mínimo que declara os filtros de Intent e devolve texto ou arquivo. Testar com uma foto, um PDF e uma **nota de voz do WhatsApp**, com o app fechado e com o app aberto. Pronto quando: os bytes chegam idênticos, até 10 MB, sem pedir permissão de arquivos. *Plano B: receptor nativo em Kotlin mais completo; plugin de terceiros só como referência.*
+- [ ] 6.3 **Protótipo 3: lembretes.** Agendar uma notificação para daqui a 2 min com o app **fechado**; depois repetir **reiniciando o celular** e com o aparelho parado por ~15 min (modo de economia). Testar as ações Feito / Adiar. Decide: plugin oficial de notificações (a) ou alarmes e receptor de boot no plugin próprio (b). *Plano B: (b).*
+- [ ] 6.4 **Protótipo 4: cofre.** Guardar e ler uma chave no Keystore (plugin próprio, comandos `secret_*`). Pronto quando a mesma interface TypeScript serve ao macOS e ao Android.
+- [ ] 6.5 **Protótipo 5: microfone.** Gravar áudio pela interface (permissão do sistema + liberar o pedido da WebView) e transcrever. *Plano B: gravação nativa pelo plugin.*
+- [ ] 6.6 **Protótipo 6: áudio do WhatsApp (OGG/Opus).** Decodificar na WebView (`toWav`) ou enviar o OGG direto ao modelo (já medido: 3/3 com Gemini Flash Lite). Escolher o caminho mais simples que funciona.
+- [ ] 6.7 **Protótipo 7: Auto Backup.** Ativar, usar o app, forçar backup e restauração (`adb shell bmgr`). Pronto quando se sabe se o banco volta e se as chaves ficam de fora.
+- [ ] 6.8 Registrar resultados e decisões em `design.md` (§5, §6, §8.4, §12) e ajustar esta lista.
+
+## Fase 7: Alicerce Android (R8)
+- [ ] 7.1 Projeto Android gerado e **versionado** (`src-tauri/gen/android` no git; ajustar o `.gitignore`)
+- [ ] 7.2 Compilar para Android e desktop com o mesmo código (dependências por plataforma); autoteste do desktop continua passando
+- [ ] 7.3 `packages/tauri-plugin-pingo` (Rust + Kotlin): esqueleto + cofre no Keystore ligado a `src/db/secrets.ts`
+- [ ] 7.4 Microfone funcionando (conforme 6.5)
+- [ ] 7.5 Interface de celular: áreas seguras, teclado, botão voltar, alvos de 48 dp, barra de abas acima da barra de gestos; revisão no aparelho
+- [ ] 7.6 Autoteste no Android: `VITE_PINGO_SELFTEST=1 pnpm tauri android dev`, com `dev_log` indo ao logcat
+- [ ] 7.7 Onboarding do celular: consentimento, nome e **colar a chave do OpenRouter** (sem pedir o número de WhatsApp); esconder a seção "WhatsApp" de Ajustes por uma chave de recurso
+- [ ] 7.8 **APK assinado** de teste: chave de assinatura guardada fora do git, `pnpm tauri android build --apk`, instalação por `adb install` e depois por arquivo; documentar
+
+## Fase 8: Compartilhar → Pingo (R1, R9, R11.1)
+- [ ] 8.1 Migration: `messages.state`, `attempts`, `content_hash` (design §4)
+- [ ] 8.2 Plugin: filtros de Intent (`text/plain`, `image/*`, `application/pdf`, `audio/*`), `singleTask`, `take_shared`, cópia para `cache/shared`, limite de 10 MB, evento "há algo novo"
+- [ ] 8.3 Core: entrada por Compartilhar (`ChannelId` novo) grava como pendente e processa; reprocessa pendentes ao abrir e ao voltar ao primeiro plano; aviso de conteúdo repetido por hash; apaga o arquivo ao terminar
+- [ ] 8.4 Interface: abrir na conversa com "organizando…"; vários arquivos em sequência; mensagens amigáveis (tipo não suportado, acima de 10 MB, sem internet: "processo quando a internet voltar")
+- [ ] 8.5 Verificação: script determinístico no core (pendente, reprocesso, duplicata) + roteiro no aparelho: foto, PDF, nota de voz, texto longo, app fechado e aberto, sem internet, **matar o app no meio da IA**
+- [ ] 8.6 Limpeza: ao iniciar, apagar de `cache/shared` os arquivos sem entrada pendente ou com mais de 24 h (era a 4.4)
+
+## Fase 9: Lembretes pelo sistema (R5)
+- [ ] 9.1 Migration: `reminders.os_id`, `body`, `kind`
+- [ ] 9.2 `ReminderPlanner` no core + porta de notificações do sistema (agendar, cancelar, listar) com versão falsa para testes, e a implementação Android (conforme 6.3)
+- [ ] 9.3 Reconciliar ao abrir, ao voltar ao primeiro plano e a cada confirmar, editar, concluir, cancelar e adiar
+- [ ] 9.4 Texto da notificação composto na hora de agendar (`relativeWhen` com o horário do disparo)
+- [ ] 9.5 Ações Feito / Adiar 1 h / Amanhã 9h e tratamento quando o app abre por uma ação
+- [ ] 9.6 Ciclo com o app aberto só posta na conversa (sem notificação duplicada); lembretes vencidos aparecem ao abrir
+- [ ] 9.7 Permissão de notificações com explicação e faixa "lembretes desligados"; orientação sobre economia de bateria
+- [ ] 9.8 Reagendar depois de reiniciar o aparelho (conforme 6.3)
+- [ ] 9.9 Verificação: planner no core com notificações falsas + roteiro no aparelho (+2 min, fechar, reiniciar, adiar, concluir)
+
+## Fase 10: Contatos e delegação manual (R6)
+- [ ] 10.1 Simplificar `contacts` (sem opt-in) e tirar o número de WhatsApp do cadastro do dono (migration)
+- [ ] 10.2 "Passar para…" monta o texto (`renderCardText` + "Responda *ok* para confirmar") e abre `wa.me`; `ReplyButton` ganha `url`
+- [ ] 10.3 Estados `offered` / `accepted` / `declined` por ação do dono: "Confirmou" e "Recusou" no item e na Agenda
+- [ ] 10.4 Lembrete de cobrança (`nudge`) em 24 h ou na véspera, com Reenviar e Confirmou
+- [ ] 10.5 Lembretes do dono mostram o responsável
+- [ ] 10.6 Tirar do caminho do app: `onContactEvent`, modelos da Meta, `lembrete_contato`
+- [ ] 10.7 Verificação: core + aparelho com WhatsApp real (a conversa abre com o texto pronto)
+- [ ] 10.8 (Opcional) Escolher contato pelo seletor do Android, que não exige permissão
+
+## Fase 11: Backup e privacidade no Android (R7, R11.3)
+- [ ] 11.1 Exportar pelo Compartilhar do sistema (`share_file`); importar pelo seletor de arquivo
+- [ ] 11.2 Auto Backup do Android com regras (conforme 6.7), deixando as chaves de fora
+- [ ] 11.3 "Apagar meus dados" limpa também `cache/shared` e o Keystore
+- [ ] 11.4 Revisar o texto de consentimento (`CONSENT_VERSION` 2): Compartilhar, IA via OpenRouter e, no público, servidor de IA
+- [ ] 11.5 Rascunho da política de privacidade (necessária só no público)
+
+## Fase 12: Piloto com pessoas (R10.8, R12.1)
+- [ ] 12.1 Criar **uma chave do OpenRouter por pessoa com teto de gasto** (ex.: US$ 2) e entregar em particular; planilha de controle fora do repositório
+- [ ] 12.2 Entregar o APK com um guia de uma página (instalar, permissões, como compartilhar do WhatsApp)
+- [ ] 12.3 Coletar erros de extração e trocar os casos sintéticos do conjunto de referência por mensagens reais anonimizadas; reavaliar `models.json` com `pnpm compare`
+- [ ] 12.4 Medir custo por pessoa e por semana, tempo de resposta e **pontualidade dos lembretes** em marcas diferentes (Samsung, Xiaomi, Motorola)
+- [ ] 12.5 Critérios para abrir ao público: uma semana sem perder mensagem, lembretes dentro de 5 minutos em quase todos os casos, custo por pessoa conhecido
+
+## Fase 13: Público: servidor de IA e Google Play (R10.9, R12, R13)
+**Regra:** AWS só serverless, sem recurso fixo, com teto de gasto que desliga sozinho. Medir antes de abrir.
+- [ ] 13.1 Decidir: região (`sa-east-1` × `us-east-1`), API Gateway HTTP × URL de função, limite do plano gratuito, conta de desenvolvedor da Play (pessoal × organização)
+- [ ] 13.2 `apps/ai-server` (CDK, reaproveitando padrões do relay): `register`, `chat/completions`, `me`; DynamoDB com TTL; Lambda ARM
+- [ ] 13.3 Atestado do aparelho (Play Integrity), token por dispositivo (hash), cotas por dia e mês, **teto global diário com desligamento automático**, modelos e parâmetros restritos pelo servidor
+- [ ] 13.4 Alarmes mínimos e orçamento mensal filtrado por `app=pingo`; logs de até 14 dias, sem conteúdo
+- [ ] 13.5 Cliente: `baseUrl` + token, escolha entre modo piloto e modo público
+- [ ] 13.6 `test` e `smoke` do servidor + **medição de custo com tráfego real** antes de abrir
+- [ ] 13.7 Política de privacidade pública (ex.: GitHub Pages) e formulário de segurança de dados
+- [ ] 13.8 Conta de desenvolvedor da Play, AAB assinado, ficha da loja, **teste fechado com 12 testadores por 14 dias** (começar cedo), produção
+
+## Fase 14: Assinatura paga (adiada)
+- [ ] 14.1 Definir plano e preço depois de conhecer o custo real por usuário (Fase 12 e 13)
+- [ ] 14.2 Cobrança pela Play (assinatura) e ligação com as cotas do servidor
+
+## Fase 15: iPhone (adiada)
+- [ ] 15.1 Xcode completo e conta Apple Developer (paga)
+- [ ] 15.2 Extensão de compartilhamento nativa (Share Extension), notificações agendadas, Keychain
+- [ ] 15.3 TestFlight e App Store
+
+## Fase 16: Canal WhatsApp via Meta (PAUSADO; guardado)
+O código existe e está testado, mas **nada está implantado**: a pilha `PingoRelay` foi destruída em 23/11/2026. Para retomar: `pnpm relay:deploy`, `pnpm relay:set-secret` e `pnpm relay:pair-code`. Itens que ficaram abertos:
+- [ ] 16.1 Cadastro Meta e número de teste (ver `go-live.md`, que agora traz o texto exato dos 4 modelos a submeter)
+- [x] 16.2 `RelayChannel` (`packages/core/src/channels`): pareamento, long polling com ack só depois de tratar, reconexão com espera crescente, envio, mídia por link temporário. `MultiChannel` junta a conversa do app e o WhatsApp
+- [x] 16.2b No app: Ajustes → WhatsApp (número do dono, endereço do relay, código de pareamento, estado da conexão, desligar). Token no cofre do sistema; fala com a AWS pelo plugin HTTP do Tauri, liberado só para `*.execute-api.sa-east-1.amazonaws.com` e o S3 de `sa-east-1`
+- [x] 16.3a Lista de números permitidos sincronizada ao conectar e a cada contato adicionado ou removido
+- [ ] 16.3b Lembretes na nuvem (criar/cancelar ao confirmar, editar, concluir). As rotas e o `RelayChannel.putReminder/deleteReminder` existem; falta ligar ao orquestrador
+- [ ] 16.4 Idempotência de lembretes entre local e nuvem (depende da 16.3b)
+- [x] 16.5 Contato aceita ou recusa pelos botões do modelo (resposta rápida chega como botão); verificado no teste integrado
+- [x] 16.6 "Apagar meus dados" também na nuvem: apaga o relay primeiro e, se falhar, não apaga nada local
+- [ ] 16.7 Testes ponta a ponta com o número de teste da Meta
+- [ ] 16.8 (Opcional) Cartão como imagem via satori/resvg
 - Verificado: `pnpm --filter @pingo/relay test:channel` (relay real em memória + RelayChannel + orquestrador: webhook assinado → fila → app → resposta, modelos de reserva fora da janela, aceite do contato, lembretes, queda de rede, revogação) e o autoteste do app
 - **Decisões:** mensagens ao dono vão ao WhatsApp quando a última veio de lá ou quando são avisos por iniciativa do Pingo; o app sempre espelha tudo. Lembrete e oferta carregam um modelo de reserva (`fallback`). Foi acrescentado o modelo `lembrete_contato`, então são 4 modelos
 - **Riscos a validar com a Meta real:** áudio de voz do WhatsApp (OGG/Opus) na extração; formato exato dos botões de resposta rápida nos modelos; o app só confirma a mensagem depois de tratá-la, mas se travar no meio do tratamento a mensagem reentregue é descartada como duplicada
 
-## Fase 7: Hardening e go-live
-- [ ] 7.1 Revisão de segurança (assinaturas, tokens, IAM, bucket, logs)
-- [ ] 7.2 Empacotar o app (macOS primeiro) e assinar/notarizar se for distribuir
-- [ ] 7.3 Piloto de 1 semana com uso real; coletar erros de extração e ajustar `models.json`
-- [ ] 7.4 Executar `go-live.md`
-
-## Fase 8: Smartphone
-- [ ] 8.1 Instalar Xcode e/ou Android Studio; inicializar alvos mobile do Tauri
-- [ ] 8.2 Adaptar layout e gestos para toque
-- [ ] 8.3 Validar SQLite, keychain, notificações e microfone no aparelho
-- [ ] 8.4 Documentar a limitação de segundo plano; avaliar Capacitor se o Tauri mobile não atender
 
 ## O que preciso de você, por fase
 | Quando | O quê |
 |---|---|
-| Fase 1 | Chave do OpenRouter (vai no app, ver abaixo) |
-| Fase 5 | Confirmar perfil e região AWS; ter permissão para criar recursos (CDK) |
-| Fase 6 | Conta Meta Business, número dedicado, token e app secret |
-| Fase 8 | Xcode completo (iPhone) ou Android Studio |
+| Amanhã (Fase 6) | Celular Android com cabo e Depuração USB; Android Studio instalado e aberto uma vez |
+| Fase 7 | Decidir o `applicationId` (sugestão: `br.com.pingo.app`) |
+| Fase 12 | Lista de pessoas do piloto; criar as chaves do OpenRouter com teto (eu te guio); coletar o feedback |
+| Fase 13 | Decisões de custo e região; conta de desenvolvedor da Google Play (taxa única); lista de 12 testadores |
+| Fase 15 | Xcode completo e conta Apple Developer |
 
 ## Onde ficam as chaves
-- **OpenRouter:** em desenvolvimento, `.env.local` na raiz (ignorado pelo git). No app, tela Configurações → grava no keychain do sistema.
-- **Meta (WhatsApp):** nunca no app. Vão para o SSM da AWS via `pnpm relay:set-secret`.
-- **Token do relay:** gerado no pareamento e guardado no keychain.
+- **OpenRouter (desenvolvimento no Mac):** `.env.local` na raiz (ignorado pelo git) e, no app, o Keychain.
+- **OpenRouter (celular):** Keystore do Android, colada pela pessoa no primeiro uso. No piloto, uma chave por pessoa com teto de gasto.
+- **Servidor de IA (público):** chave do Pingo no SSM Parameter Store, nunca no app.
+- **Chave de assinatura do APK/AAB:** fora do repositório, com cópia segura.
 - **Nunca cole chaves no chat.**

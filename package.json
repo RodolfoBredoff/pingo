@@ -17,7 +17,8 @@
     "relay:diff": "AWS_PROFILE=${AWS_PROFILE:-publishing} pnpm --filter @pingo/relay diff",
     "relay:smoke": "AWS_PROFILE=${AWS_PROFILE:-publishing} pnpm --filter @pingo/relay smoke",
     "relay:set-secret": "AWS_PROFILE=${AWS_PROFILE:-publishing} pnpm --filter @pingo/relay set-secret",
-    "relay:pair-code": "AWS_PROFILE=${AWS_PROFILE:-publishing} pnpm --filter @pingo/relay pair-code"
+    "relay:pair-code": "AWS_PROFILE=${AWS_PROFILE:-publishing} pnpm --filter @pingo/relay pair-code",
+    "android:doctor": "bash scripts/android-doctor.sh"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
