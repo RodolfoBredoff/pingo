@@ -20,6 +20,17 @@
     "fs:allow-read-text-file",
     "fs:allow-read-dir",
     "fs:allow-remove",
-    "fs:allow-exists"
+    "fs:allow-exists",
+    {
+      "identifier": "http:default",
+      "allow": [
+        {
+          "url": "https://*.execute-api.sa-east-1.amazonaws.com/*"
+        },
+        {
+          "url": "https://*.s3.sa-east-1.amazonaws.com/*"
+        }
+      ]
+    }
   ]
 }

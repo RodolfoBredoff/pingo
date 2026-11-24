@@ -78,16 +78,21 @@ Conta `publishing` (025843049355), região `sa-east-1`, pilha `PingoRelay`. A tr
 - **Pendentes de verificação com a Meta real (Fase 6):** formato exato dos modelos e botões de resposta rápida, áudio OGG/Opus na extração, e o orçamento de custo (ver go-live)
 - Os valores em `/pingo/meta/*` hoje são de TESTE (criados pelo smoke). Troque com `pnpm relay:set-secret` antes de ligar a Meta
 
-## Fase 6: Canal WhatsApp (R9)
-- [ ] 6.1 Cadastro Meta e número de teste (ver `go-live.md`); submeter templates (`boas_vindas`, `lembrete_item`, `oferta_responsabilidade`)
-- [ ] 6.0 Limpeza de mídia local antiga (veio da 4.4): guardar mídia só pelo tempo necessário e apagar a antiga; incluir a mídia em "apagar meus dados"
-- [ ] 6.2 `RelayChannel` no app: pareamento, long polling, envio, mídia
-- [ ] 6.3 Sincronizar allowlist e lembretes (criar/cancelar na nuvem ao confirmar/editar/concluir)
-- [ ] 6.4 Idempotência de lembretes entre local e nuvem
-- [ ] 6.5 Opt-in de contatos pelo WhatsApp
-- [ ] 6.6 "Apagar meus dados" também na nuvem
+## Fase 6: Canal WhatsApp (R9) (em andamento: o lado do app está pronto; falta a Meta)
+- [ ] 6.1 Cadastro Meta e número de teste (ver `go-live.md`, que agora traz o texto exato dos 4 modelos a submeter)
+- [ ] 6.0 Limpeza de mídia local antiga (veio da 4.4): o app não grava mídia em disco (ela passa pela memória e vai à IA), então por enquanto não há o que limpar. Reavaliar se um dia o app guardar originais
+- [x] 6.2 `RelayChannel` (`packages/core/src/channels`): pareamento, long polling com ack só depois de tratar, reconexão com espera crescente, envio, mídia por link temporário. `MultiChannel` junta a conversa do app e o WhatsApp
+- [x] 6.2b No app: Ajustes → WhatsApp (número do dono, endereço do relay, código de pareamento, estado da conexão, desligar). Token no cofre do sistema; fala com a AWS pelo plugin HTTP do Tauri, liberado só para `*.execute-api.sa-east-1.amazonaws.com` e o S3 de `sa-east-1`
+- [x] 6.3a Lista de números permitidos sincronizada ao conectar e a cada contato adicionado ou removido
+- [ ] 6.3b Lembretes na nuvem (criar/cancelar ao confirmar, editar, concluir). As rotas e o `RelayChannel.putReminder/deleteReminder` existem; falta ligar ao orquestrador
+- [ ] 6.4 Idempotência de lembretes entre local e nuvem (depende da 6.3b)
+- [x] 6.5 Contato aceita ou recusa pelos botões do modelo (resposta rápida chega como botão); verificado no teste integrado
+- [x] 6.6 "Apagar meus dados" também na nuvem: apaga o relay primeiro e, se falhar, não apaga nada local
 - [ ] 6.7 Testes ponta a ponta com o número de teste da Meta
 - [ ] 6.8 (Opcional) Cartão como imagem via satori/resvg
+- Verificado: `pnpm --filter @pingo/relay test:channel` (relay real em memória + RelayChannel + orquestrador: webhook assinado → fila → app → resposta, modelos de reserva fora da janela, aceite do contato, lembretes, queda de rede, revogação) e o autoteste do app
+- **Decisões:** mensagens ao dono vão ao WhatsApp quando a última veio de lá ou quando são avisos por iniciativa do Pingo; o app sempre espelha tudo. Lembrete e oferta carregam um modelo de reserva (`fallback`). Foi acrescentado o modelo `lembrete_contato`, então são 4 modelos
+- **Riscos a validar com a Meta real:** áudio de voz do WhatsApp (OGG/Opus) na extração; formato exato dos botões de resposta rápida nos modelos; o app só confirma a mensagem depois de tratá-la, mas se travar no meio do tratamento a mensagem reentregue é descartada como duplicada
 
 ## Fase 7: Hardening e go-live
 - [ ] 7.1 Revisão de segurança (assinaturas, tokens, IAM, bucket, logs)

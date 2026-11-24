@@ -26,7 +26,7 @@ Confira valores, limites e preços na documentação oficial da Meta, da AWS e d
 ## 3. WhatsApp
 - [ ] Webhook configurado (URL do relay + token de verificação); campo `messages` assinado
 - [ ] Assinatura `X-Hub-Signature-256` validada em teste real
-- [ ] Templates aprovados: `boas_vindas`, `lembrete_item`, `oferta_responsabilidade`
+- [ ] Modelos aprovados (4): `boas_vindas`, `lembrete_item`, `lembrete_contato`, `oferta_responsabilidade` (textos abaixo)
 - [ ] Nome de exibição e foto do negócio definidos
 - [ ] Teste: texto, imagem, PDF, áudio, botões, lista, template
 - [ ] Teste: app fechado → "Recebi!" → abrir app → proposta chega
@@ -52,3 +52,16 @@ Confira valores, limites e preços na documentação oficial da Meta, da AWS e d
 - [ ] Acompanhar confirmação vs. descarte das propostas
 - [ ] Acompanhar falhas de lembrete e mensagens presas na DLQ
 - [ ] Decidir se vale ir para o smartphone ou criar painel web
+
+## Modelos de mensagem para submeter à Meta
+Idioma: português (Brasil). Categoria sugerida: Utilidade. Os nomes são exatos (o relay só aceita estes). Variáveis em ordem; o app nunca manda quebra de linha dentro delas. Confira as regras de aprovação no painel da Meta no dia.
+
+| Nome | Corpo | Botões de resposta rápida |
+|---|---|---|
+| `oferta_responsabilidade` | `Oi, {{1}}! Aqui é o Pingo, assistente de {{2}}. Ele(a) quer passar para você: {{3}} ({{4}}). Pode ficar com essa?` | `Aceito`, `Não posso` |
+| `lembrete_item` | `🔔 Lembrete: {{1}} ({{2}})` | `Feito ✅`, `Adiar 1 h`, `Amanhã 9h` |
+| `lembrete_contato` | `🔔 Lembrete: {{1}} ({{2}}). {{3}} passou isso para você.` | nenhum |
+| `boas_vindas` | `Oi, {{1}}! Eu sou o Pingo, assistente de {{2}}. Posso te mandar recados e lembretes?` | `Pode`, `Agora não` |
+
+Os botões de resposta rápida levam um valor interno que o app envia (por exemplo `offer_yes:<id>`); na Meta basta criar os botões com o texto acima.
+

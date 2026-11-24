@@ -41,6 +41,11 @@ export function Bubble({ entry, status, superseded }: Props) {
   const audience = entry.audience
   return (
     <Appear mine={mine}>
+      {entry.via === 'whatsapp' && (
+        <span className="mb-1 block text-right font-mono text-[10.5px] text-ink/50">
+          pelo WhatsApp
+        </span>
+      )}
       {audience && (
         <span
           className={`mb-1 block font-mono text-[10.5px] text-ink/50 ${mine ? 'text-right' : ''}`}

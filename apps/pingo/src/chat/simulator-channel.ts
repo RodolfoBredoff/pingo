@@ -59,6 +59,20 @@ export class SimulatorChannel implements Channel {
 
   // ---------------------------------------------------------- lado do usuário
 
+  /** Mostra na conversa do app o que o dono escreveu pelo WhatsApp. Não passa pelo orquestrador de novo. */
+  mirrorUser(e: IncomingEvent): void {
+    if (e.type === 'button') return
+    let body: ChatBody
+    if (e.unsupportedType) {
+      body = { type: 'text', text: `(mensagem do tipo "${e.unsupportedType}", que eu não leio)` }
+    } else if (e.media) {
+      body = { type: 'attachment', kind: e.media.kind, name: 'WhatsApp', caption: e.text }
+    } else {
+      body = { type: 'text', text: e.text ?? '' }
+    }
+    this.hooks.onEntry({ ...this.entry('user', body), via: 'whatsapp' })
+  }
+
   async userText(text: string): Promise<void> {
     this.hooks.onEntry(this.entry('user', { type: 'text', text }))
     await this.emit({

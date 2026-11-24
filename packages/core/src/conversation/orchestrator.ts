@@ -183,9 +183,10 @@ export class Orchestrator {
         error: e instanceof Error ? e.name : 'desconhecido',
       })
       if (mine) {
+        // Se nem o aviso de erro conseguir sair (sem internet, por exemplo), não há mais o que fazer.
         await this.say(
           'Ops, algo deu errado do meu lado. Sua mensagem ficou guardada, tente de novo em instantes. 🙏',
-        )
+        ).catch(() => undefined)
       }
     } finally {
       await this.d.channel.setTyping?.(this.d.owner.phone, false)
@@ -824,6 +825,18 @@ export class Orchestrator {
         { id: `offer_yes:${id}`, title: 'Aceito' },
         { id: `offer_no:${id}`, title: 'Não posso' },
       ],
+      // Fora da janela de 24 h (contato novo), o WhatsApp só aceita o modelo aprovado.
+      fallback: {
+        type: 'template',
+        name: 'oferta_responsabilidade',
+        variables: [
+          contact.name,
+          this.d.owner.name,
+          item.title,
+          `${when}${item.location ? ` · ${item.location}` : ''}`,
+        ],
+        buttonPayloads: [`offer_yes:${id}`, `offer_no:${id}`],
+      },
     })
   }
 
@@ -902,8 +915,15 @@ export class Orchestrator {
   }
 
   private async tellAssignee(item: ItemRow, text: string): Promise<void> {
-    const c = await this.acceptedContact(item.id)
-    if (c) await this.d.channel.send(c.phone, { type: 'text', text })
+    try {
+      const c = await this.acceptedContact(item.id)
+      if (c) await this.d.channel.send(c.phone, { type: 'text', text })
+    } catch (e) {
+      // Avisar o contato é cortesia (fora da janela de 24 h o WhatsApp recusa texto livre).
+      this.d.log?.warn('aviso ao contato não enviado', {
+        error: e instanceof Error ? e.name : 'desconhecido',
+      })
+    }
   }
 
   // --------------------------------------------------------------- lembretes
@@ -957,13 +977,36 @@ export class Orchestrator {
             { id: `rem_snooze1h:${r.id}`, title: 'Adiar 1 h' },
             { id: `rem_snoozetm:${r.id}`, title: 'Amanhã 9h' },
           ],
+          // Lembrete é por iniciativa do Pingo: quase sempre cai fora da janela de 24 h.
+          fallback: {
+            type: 'template',
+            name: 'lembrete_item',
+            variables: [
+              item.title,
+              `${when || 'em breve'}${item.location ? ` · ${item.location}` : ''}`,
+            ],
+            buttonPayloads: [`rem_done:${item.id}`, `rem_snooze1h:${r.id}`, `rem_snoozetm:${r.id}`],
+          },
         })
-        const c = await this.acceptedContact(item.id)
-        if (c)
-          await this.d.channel.send(c.phone, {
-            type: 'text',
-            text: `${body}\n(${this.d.owner.name} passou isso para você)`,
+        // O contato que aceitou também é avisado, mas a falha dele nunca refaz o aviso do dono.
+        try {
+          const c = await this.acceptedContact(item.id)
+          if (c) {
+            await this.d.channel.send(c.phone, {
+              type: 'text',
+              text: `${body}\n(${this.d.owner.name} passou isso para você)`,
+              fallback: {
+                type: 'template',
+                name: 'lembrete_contato',
+                variables: [item.title, when || 'em breve', this.d.owner.name],
+              },
+            })
+          }
+        } catch (e) {
+          this.d.log?.warn('lembrete ao contato não enviado', {
+            error: e instanceof Error ? e.name : 'desconhecido',
           })
+        }
         await this.d.notifier?.notify(item.title, when || 'Lembrete')
         await this.d.db
           .update(reminders)

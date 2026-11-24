@@ -77,17 +77,28 @@ export interface ItemCard {
   actions: ReplyButton[]
 }
 
-export type TemplateName = 'boas_vindas' | 'lembrete_item' | 'oferta_responsabilidade'
+export type TemplateName =
+  'boas_vindas' | 'lembrete_item' | 'lembrete_contato' | 'oferta_responsabilidade'
 
-export type OutgoingMessage =
+/** Modelo aprovado pela Meta: único jeito de falar com alguém fora da janela de 24 h. */
+export interface TemplateMessage {
+  type: 'template'
+  name: TemplateName
+  variables: string[]
+  /** Valores devolvidos quando o usuário toca nos botões de resposta rápida do modelo, em ordem. */
+  buttonPayloads?: string[]
+}
+
+/** O que o WhatsApp sabe enviar sem o app converter nada. */
+export type PlainMessage =
   | { type: 'text'; text: string }
   | { type: 'buttons'; text: string; buttons: ReplyButton[] }
   | { type: 'list'; text: string; buttonLabel: string; rows: ListRow[] }
+
+export type OutgoingMessage =
+  | (PlainMessage & {
+      /** Modelo a usar se a janela de 24 h estiver fechada (só o canal WhatsApp usa). */
+      fallback?: TemplateMessage
+    })
   | { type: 'card'; card: ItemCard }
-  | {
-      type: 'template'
-      name: TemplateName
-      variables: string[]
-      /** Valores devolvidos quando o usuário toca nos botões de resposta rápida do modelo, em ordem. */
-      buttonPayloads?: string[]
-    }
+  | TemplateMessage

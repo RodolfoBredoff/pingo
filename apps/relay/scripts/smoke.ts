@@ -25,6 +25,8 @@ import {
   FilterLogEventsCommand,
 } from '@aws-sdk/client-cloudwatch-logs'
 import { ListQueuesCommand, PurgeQueueCommand, SQSClient } from '@aws-sdk/client-sqs'
+import { RelayChannel } from '@pingo/core'
+import type { IncomingEvent } from '@pingo/shared'
 import { ACCOUNT, assertAccount, stackOutputs } from './lib/aws'
 import { hashCode, newPairCode } from './pair-code'
 
@@ -235,6 +237,31 @@ r = await j(await post(stranger, sign(stranger)))
 check(r.status === 200, 'número fora da lista: 200', r)
 r = await j(await fetch(`${API}/inbox?wait=3`, { headers: auth }))
 check(parse(r.body).messages?.length === 0, 'e nada entra na fila', r)
+
+section('3b) o RelayChannel do app, de verdade, contra a AWS (fila FIFO real)')
+{
+  const received: IncomingEvent[] = []
+  const channel = new RelayChannel({ baseUrl: API, getToken: async () => token, pollWaitSec: 5 })
+  channel.onEvent((e) => void received.push(e))
+  await channel.start()
+  const raw = waText(`smoke-${stamp}-ch`, OWNER, 'pelo canal do app')
+  await post(raw, sign(raw))
+  const t0 = Date.now()
+  while (received.length === 0 && Date.now() - t0 < 25_000)
+    await new Promise((res) => setTimeout(res, 250))
+  check(
+    received.length === 1 && received[0]!.channelMsgId === `smoke-${stamp}-ch`,
+    'o canal recebeu a mensagem pelo long polling',
+    received.length,
+  )
+  check(channel.status === 'online', 'e está online')
+  await new Promise((res) => setTimeout(res, 1500)) // dá tempo ao ack
+  await channel.stop()
+  r = await j(await fetch(`${API}/inbox?wait=3`, { headers: auth }))
+  check(parse(r.body).messages?.length === 0, 'a mensagem foi confirmada (ack) e não volta mais', r)
+  await channel.syncAllowlist(OWNER, [])
+  check(true, 'syncAllowlist passou pelo canal')
+}
 
 section('4) envio (a Meta vai recusar: as credenciais são de teste)')
 r = await j(

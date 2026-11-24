@@ -23,13 +23,16 @@ import {
   discardPendingImport,
   eraseEverything,
   exportBackupFile,
+  pairWhatsApp,
   pickBackupToImport,
   readCaps,
   runBackupIfDue,
   setBackupAuto,
   setBackupEvery,
   type ImportPreview,
+  unpairWhatsApp,
   removeContactUi,
+  saveOwnerPhone,
   refreshSpend,
   removeKey,
   resetTestData,
@@ -41,7 +44,7 @@ import {
   testKey,
   type KeyInfo,
 } from '../app/controller'
-import { useApp, type ThemeMode } from '../app/store'
+import { useApp, type ThemeMode, type WhatsAppStatus } from '../app/store'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { spring, springBouncy } from '../lib/motion'
 
@@ -170,6 +173,13 @@ export function SettingsView() {
         <div className="mt-3">
           <Btn onClick={() => void saveCaps(caps.daily, caps.monthly)}>Salvar tetos</Btn>
         </div>
+      </Section>
+
+      <Section
+        title="WhatsApp"
+        hint="Fale com o Pingo pelo WhatsApp. O app fica ligado neste computador e busca suas mensagens no relay da AWS."
+      >
+        <WhatsApp />
       </Section>
 
       <Section
@@ -442,7 +452,8 @@ function Privacy() {
         onCancel={() => setEraseOpen(false)}
         onConfirm={async () => {
           setErasing(true)
-          await eraseEverything({ removeKey: alsoKey })
+          // Se a nuvem não apagar, nada é apagado e o app avisa; libera o botão de novo.
+          if (!(await eraseEverything({ removeKey: alsoKey }))) setErasing(false)
         }}
       >
         <p>
@@ -458,6 +469,148 @@ function Privacy() {
           />
           Remover também a chave do OpenRouter guardada no cofre do sistema.
         </label>
+      </ConfirmDialog>
+    </div>
+  )
+}
+
+const WA_STATUS: Record<WhatsAppStatus, { label: string; tone: string }> = {
+  off: { label: 'desligado', tone: 'bg-ink/10' },
+  connecting: { label: 'conectando…', tone: 'bg-sun/30' },
+  online: { label: 'conectado', tone: 'bg-mint/30' },
+  offline: { label: 'sem conexão, tentando de novo', tone: 'bg-sun/30' },
+  unauthorized: { label: 'acesso recusado: pareie de novo', tone: 'bg-primary/20' },
+}
+
+function WhatsApp() {
+  const wa = useApp((s) => s.whatsapp)
+  const [phone, setPhone] = useState('')
+  const [url, setUrl] = useState(wa.url ?? '')
+  const [code, setCode] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [confirmOff, setConfirmOff] = useState(false)
+  const [offBusy, setOffBusy] = useState(false)
+
+  const run = async (fn: () => Promise<{ ok: boolean; message?: string }>) => {
+    setError(null)
+    const r = await fn()
+    if (!r.ok) setError(r.message ?? 'Algo deu errado.')
+  }
+  const st = WA_STATUS[wa.status]
+
+  return (
+    <div className="grid gap-3">
+      {!wa.ownerPhone ? (
+        <>
+          <label className="block text-[12px] font-semibold text-ink/65">
+            Seu número de WhatsApp
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              inputMode="tel"
+              placeholder="11 98888-7777"
+              onKeyDown={(e) => e.key === 'Enter' && void run(() => saveOwnerPhone(phone))}
+              className="mt-1 h-11 w-full rounded-2xl border border-line bg-surface-2/60 px-3 font-mono text-sm text-ink outline-none"
+            />
+          </label>
+          <div>
+            <Btn
+              primary
+              disabled={!phone.trim()}
+              onClick={() => void run(() => saveOwnerPhone(phone))}
+            >
+              Salvar número
+            </Btn>
+          </div>
+          <p className="text-[12px] text-ink/55">
+            É o número que vai escrever para o Pingo. Só ele e os seus contatos são atendidos.
+          </p>
+        </>
+      ) : !wa.paired ? (
+        <>
+          <p className="text-[12.5px] text-ink/65">
+            Seu número: <span className="font-mono">{wa.ownerPhone}</span>
+          </p>
+          <label className="block text-[12px] font-semibold text-ink/65">
+            Endereço do relay
+            <input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://abc123.execute-api.sa-east-1.amazonaws.com"
+              spellCheck={false}
+              className="mt-1 h-11 w-full rounded-2xl border border-line bg-surface-2/60 px-3 font-mono text-[12px] text-ink outline-none"
+            />
+          </label>
+          <label className="block text-[12px] font-semibold text-ink/65">
+            Código de pareamento
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="ABCD-EFGH-JKLM-NPQR-STUV"
+              spellCheck={false}
+              autoComplete="off"
+              className="mt-1 h-11 w-full rounded-2xl border border-line bg-surface-2/60 px-3 font-mono text-sm uppercase text-ink outline-none"
+            />
+          </label>
+          <div>
+            <Btn
+              primary
+              disabled={!url.trim() || code.trim().length < 16 || wa.busy}
+              onClick={() => void run(() => pairWhatsApp(url, code))}
+            >
+              {wa.busy ? 'Pareando…' : 'Parear'}
+            </Btn>
+          </div>
+          <p className="text-[12px] text-ink/55">
+            Para gerar o código, rode <span className="font-mono">pnpm relay:pair-code</span> no
+            terminal do projeto. Ele vale 10 minutos e só funciona uma vez.
+          </p>
+        </>
+      ) : (
+        <>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[13px]">
+              Número: <span className="font-mono">{wa.ownerPhone}</span>
+            </span>
+            <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${st.tone}`}>
+              {st.label}
+            </span>
+          </div>
+          <p className="truncate font-mono text-[11.5px] text-ink/50">{wa.url}</p>
+          <div>
+            <Btn danger onClick={() => setConfirmOff(true)}>
+              Desligar WhatsApp
+            </Btn>
+          </div>
+          <p className="text-[12px] text-ink/55">
+            Com o app fechado, o relay guarda suas mensagens (até 4 dias) e responde “Recebi!”. Ao
+            abrir, o Pingo organiza tudo.
+          </p>
+        </>
+      )}
+      {error && <p className="text-[12.5px] text-primary">{error}</p>}
+
+      <ConfirmDialog
+        open={confirmOff}
+        title="Desligar o WhatsApp?"
+        confirmLabel="Desligar"
+        danger
+        busy={offBusy}
+        onCancel={() => setConfirmOff(false)}
+        onConfirm={async () => {
+          setOffBusy(true)
+          const r = await unpairWhatsApp()
+          if (!r.ok) {
+            setError(r.message)
+            setOffBusy(false)
+            setConfirmOff(false)
+          }
+        }}
+      >
+        <p>
+          O Pingo apaga o que está no relay (mensagens na fila, mídia e lembretes agendados) e este
+          aparelho deixa de receber mensagens do WhatsApp. Sua agenda continua aqui.
+        </p>
       </ConfirmDialog>
     </div>
   )

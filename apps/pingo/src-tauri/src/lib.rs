@@ -131,6 +131,8 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
+        // Fala com o relay na AWS sem as regras de CORS do navegador; só para os endereços liberados na capability.
+        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_fs::init())
         // Lembra as pastas que o usuário escolheu (backup automático) entre uma abertura e outra.
         .plugin(tauri_plugin_persisted_scope::init())

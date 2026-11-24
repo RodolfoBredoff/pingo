@@ -21,7 +21,12 @@ const LIMITS = {
 
 export class InvalidMessage extends Error {}
 
-const TEMPLATES = new Set(['boas_vindas', 'lembrete_item', 'oferta_responsabilidade'])
+const TEMPLATES = new Set([
+  'boas_vindas',
+  'lembrete_item',
+  'lembrete_contato',
+  'oferta_responsabilidade',
+])
 const LANGUAGE = 'pt_BR'
 
 /** Modelos não aceitam quebra de linha, tab nem 4 espaços seguidos em variáveis. */

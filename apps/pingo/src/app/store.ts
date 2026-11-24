@@ -28,6 +28,19 @@ export interface LastRun {
   json: string
 }
 
+export type WhatsAppStatus = 'off' | 'connecting' | 'online' | 'offline' | 'unauthorized'
+
+export interface WhatsAppState {
+  /** Endereço do relay na AWS (não é segredo). */
+  url: string | null
+  /** Há token no cofre do sistema. */
+  paired: boolean
+  status: WhatsAppStatus
+  /** O dono já informou um WhatsApp de verdade (sem isso o relay não tem a quem responder). */
+  ownerPhone: string | null
+  busy: boolean
+}
+
 export interface BackupState {
   /** Pasta escolhida para o backup automático. */
   dir: string | null
@@ -47,6 +60,7 @@ interface AppState {
   ownerName: string
   consentAt: string | null
   backup: BackupState
+  whatsapp: WhatsAppState
   entries: ChatEntry[]
   typing: boolean
   statuses: Record<string, ItemStatus>
@@ -72,6 +86,7 @@ export const useApp = create<AppState>(() => ({
   direction: 1,
   ownerName: '',
   consentAt: null,
+  whatsapp: { url: null, paired: false, status: 'off', ownerPhone: null, busy: false },
   backup: { dir: null, auto: false, everyDays: 1, lastAt: null, lastError: null, busy: false },
   entries: [],
   typing: false,

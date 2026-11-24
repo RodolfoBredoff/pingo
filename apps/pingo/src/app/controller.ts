@@ -11,8 +11,12 @@ import {
   exportBackup,
   importBackup,
   listContacts,
+  MultiChannel,
   normalizePhone,
   Orchestrator,
+  pairRelay,
+  RelayChannel,
+  RelayError,
   parseBackup,
   parseCommand,
   removeContact,
@@ -26,10 +30,12 @@ import {
   startOfLocalDayUtc,
   startOfLocalMonthUtc,
   type Backup,
+  type Channel,
   type Notifier,
   type PingoDb,
 } from '@pingo/core'
 import { join } from '@tauri-apps/api/path'
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
 import { readDir, readTextFile, remove as removeFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import {
@@ -49,6 +55,8 @@ import { getApp, goTab, setApp, showToast, type ThemeMode } from './store'
 const log = createLogger({ scope: 'app' })
 const MAX_FILE = 10 * 1024 * 1024
 const OWNER_PHONE = '+5500000000000' // número fictício do dono no simulador
+/** Endereço aceito para o relay (a capability do Tauri só libera estes hosts). */
+const RELAY_URL_RE = /^https:\/\/[a-z0-9]+\.execute-api\.sa-east-1\.amazonaws\.com$/
 
 interface Runtime {
   channel: SimulatorChannel
@@ -61,6 +69,7 @@ interface Runtime {
 let db: PingoDb
 let rt: Runtime | null = null
 let initPromise: Promise<void> | null = null
+let relay: RelayChannel | null = null
 let housekeeping: ReturnType<typeof setInterval> | undefined
 let backupTimer: ReturnType<typeof setInterval> | undefined
 
@@ -178,6 +187,37 @@ async function startRuntime(name: string, phone: string, tz: string) {
     onTyping: (on) => setApp({ typing: on }),
     contactName: (p) => getApp().contacts.find((c) => c.phone === p)?.name ?? p,
   })
+  // WhatsApp (opcional): só liga se há endereço, token no cofre e o número real do dono.
+  const relayUrl = (await getSetting('relay_url')) ?? null
+  const hasToken = !!(await secrets.get('relay_token'))
+  const realPhone = phone !== OWNER_PHONE
+  setApp({
+    whatsapp: {
+      url: relayUrl,
+      paired: !!relayUrl && hasToken,
+      status: 'off',
+      ownerPhone: realPhone ? phone : null,
+      busy: false,
+    },
+  })
+  let active: Channel = channel
+  relay = null
+  if (relayUrl && hasToken && realPhone) {
+    relay = new RelayChannel({
+      baseUrl: relayUrl,
+      getToken: () => secrets.get('relay_token'),
+      fetchFn: tauriFetch as unknown as typeof fetch,
+      log: log.child('relay'),
+      onStatus: (st) =>
+        setApp((s) => ({ whatsapp: { ...s.whatsapp, status: st === 'stopped' ? 'off' : st } })),
+    })
+    active = new MultiChannel(channel, relay, {
+      ownerPhone: phone,
+      mirrorIncoming: (e) => channel.mirrorUser(e),
+      log: log.child('canal'),
+    })
+  }
+
   const extractor = new LazyExtractor(db, now, (r) =>
     setApp({
       lastRun: {
@@ -190,7 +230,7 @@ async function startRuntime(name: string, phone: string, tz: string) {
   )
   const orchestrator = new Orchestrator({
     db,
-    channel,
+    channel: active,
     extractor,
     owner: { phone, name, tz },
     budget: config.limits,
@@ -198,11 +238,19 @@ async function startRuntime(name: string, phone: string, tz: string) {
     log: log.child('orchestrator'),
     notifier: systemNotifier,
     // "apagar meus dados" pelo chat, depois da confirmação por botão.
-    onEraseRequested: () => eraseEverything({ removeKey: false }),
+    onEraseRequested: async () => {
+      if (!(await eraseEverything({ removeKey: false }))) {
+        await channel.send(phone, {
+          type: 'text',
+          text: 'Não consegui apagar os dados na nuvem agora, então não apaguei nada. Confira a internet e tente de novo.',
+        })
+      }
+    },
   })
   rt = { channel, orchestrator, owner: { phone, name, tz }, offsetMs: 0 }
   setApp({ contacts: await listContacts(db) })
   await orchestrator.start()
+  void syncAllowlist()
   void prepareNotifications()
   void refreshAutostart()
   void startBackupScheduler()
@@ -440,6 +488,7 @@ export async function addContactUi(name: string, phone: string): Promise<Contact
     return { ok: false, message }
   }
   await refreshAll()
+  void syncAllowlist()
   showToast(`${r.contact.name} adicionado.`)
   return { ok: true }
 }
@@ -449,6 +498,7 @@ export async function removeContactUi(id: string) {
   if (!c) return
   await removeContact(db, c.id)
   await refreshAll()
+  void syncAllowlist()
   showToast(`${c.name} removido.`, 'warn')
 }
 
@@ -652,7 +702,23 @@ async function startBackupScheduler() {
  * Backups que a pessoa salvou em pastas dela NÃO são tocados (o aviso fica na tela).
  * A nuvem entra aqui na Fase 6.
  */
-export async function eraseEverything(opts: { removeKey: boolean }): Promise<void> {
+export async function eraseEverything(opts: { removeKey: boolean }): Promise<boolean> {
+  // Primeiro a nuvem: se ela falhar, nada é apagado e o app continua como estava.
+  if (relay) {
+    try {
+      await relay.eraseRemote()
+    } catch (e) {
+      // 401 = o relay já não reconhece este aparelho; não há mais nada dele lá.
+      if (!(e instanceof RelayError && e.status === 401)) {
+        log.warn('apagar na nuvem falhou', { error: e instanceof Error ? e.message : String(e) })
+        showToast(
+          'Não consegui apagar os dados na nuvem. Confira a internet e tente de novo.',
+          'error',
+        )
+        return false
+      }
+    }
+  }
   clearInterval(housekeeping)
   clearInterval(backupTimer)
   await rt?.orchestrator.stop()
@@ -660,8 +726,109 @@ export async function eraseEverything(opts: { removeKey: boolean }): Promise<voi
   // Gravações do histórico do chat que ainda estavam a caminho.
   await new Promise((r) => setTimeout(r, 300))
   await db.delete(schema.chatLog)
+  await secrets.delete('relay_token')
   if (opts.removeKey) await secrets.delete('openrouter_api_key')
   location.reload()
+  return true
+}
+
+// ------------------------------------------------------------------ WhatsApp
+
+export type WhatsAppResult = { ok: true } | { ok: false; message: string }
+
+/** Diz ao relay quem pode falar com o Pingo: o dono e os contatos cadastrados. */
+async function syncAllowlist(): Promise<void> {
+  if (!relay || !rt) return
+  try {
+    await relay.syncAllowlist(
+      rt.owner.phone,
+      getApp()
+        .contacts.filter((c) => c.status !== 'blocked')
+        .map((c) => c.phone),
+    )
+  } catch (e) {
+    log.warn('não consegui atualizar a lista de números no relay', {
+      error: e instanceof RelayError ? e.code : 'desconhecido',
+    })
+  }
+}
+
+function relayMessage(e: unknown): string {
+  if (e instanceof RelayError) {
+    if (e.status === 401) return 'Código inválido ou vencido. Gere um novo e tente de novo.'
+    if (e.code === 'network')
+      return 'Não consegui falar com o relay. Confira o endereço e a internet.'
+    if (e.status === 429) return 'Muitas tentativas. Espere um minuto.'
+  }
+  return 'Algo deu errado ao falar com o relay.'
+}
+
+/** Pareia este app com o relay: troca o código de uso único por um token guardado no cofre. */
+export async function pairWhatsApp(rawUrl: string, code: string): Promise<WhatsAppResult> {
+  const url = rawUrl.trim().replace(/\/+$/, '')
+  if (!RELAY_URL_RE.test(url)) {
+    return {
+      ok: false,
+      message:
+        'O endereço deve ser parecido com https://abc123.execute-api.sa-east-1.amazonaws.com',
+    }
+  }
+  if (!rt || rt.owner.phone === OWNER_PHONE) {
+    return { ok: false, message: 'Informe antes o número do seu WhatsApp.' }
+  }
+  setApp((s) => ({ whatsapp: { ...s.whatsapp, busy: true } }))
+  try {
+    const token = await pairRelay({
+      baseUrl: url,
+      code: code.trim(),
+      fetchFn: tauriFetch as unknown as typeof fetch,
+    })
+    await secrets.set('relay_token', token)
+    await setSetting('relay_url', url)
+    await rt.orchestrator.stop()
+    location.reload()
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, message: relayMessage(e) }
+  } finally {
+    setApp((s) => ({ whatsapp: { ...s.whatsapp, busy: false } }))
+  }
+}
+
+/** Desliga o WhatsApp: apaga o que está no relay e o token deste aparelho. */
+export async function unpairWhatsApp(): Promise<WhatsAppResult> {
+  if (relay) {
+    try {
+      await relay.eraseRemote()
+    } catch (e) {
+      if (!(e instanceof RelayError && e.status === 401)) {
+        return {
+          ok: false,
+          message: 'Não consegui limpar o relay agora. Confira a internet e tente de novo.',
+        }
+      }
+    }
+  }
+  await secrets.delete('relay_token')
+  await db.delete(schema.settings).where(eq(schema.settings.key, 'relay_url'))
+  await rt?.orchestrator.stop()
+  location.reload()
+  return { ok: true }
+}
+
+/** Salva o número de WhatsApp do dono (o relay só atende esse número e os contatos). */
+export async function saveOwnerPhone(raw: string): Promise<WhatsAppResult> {
+  const parsed = parseOwnerPhone(raw)
+  if (!parsed.ok || !parsed.phone) {
+    return { ok: false, message: 'Não entendi esse número. Use o DDD, por exemplo 11 98888-7777.' }
+  }
+  if (getApp().contacts.some((c) => c.phone === parsed.phone)) {
+    return { ok: false, message: 'Esse número já está nos seus contatos.' }
+  }
+  await db.update(schema.owner).set({ phone: parsed.phone }).where(eq(schema.owner.id, 1))
+  await rt?.orchestrator.stop()
+  location.reload()
+  return { ok: true }
 }
 
 // --------------------------------------------------------------------- ajustes

@@ -14,6 +14,7 @@ import {
   sendFile,
   sendText,
   testKey,
+  virtualNow,
 } from './controller'
 
 /**
@@ -138,8 +139,9 @@ export async function runSelfTest() {
     )
     const cards = getApp().entries.filter((e) => e.body.type === 'card')
     await out(
-      cards.length === 2,
-      `2 cartões em ${Date.now() - t0} ms (entradas novas: ${getApp().entries.length - before})`,
+      // A IA às vezes separa "levar lanche" em um terceiro cartão; 2 ou 3 estão certos.
+      cards.length >= 2 && cards.length <= 3,
+      `${cards.length} cartões em ${Date.now() - t0} ms (entradas novas: ${getApp().entries.length - before})`,
     )
     await out(!getApp().typing, 'indicador "digitando" apagado')
     const firstCard = cards[0]?.body.type === 'card' ? cards[0].body.card : null
@@ -280,7 +282,15 @@ export async function runSelfTest() {
         }
 
         n = getApp().entries.length
-        await advanceClock(6 * 24 * 3_600_000)
+        // Vai até 3 h antes do compromisso (a véspera às 21h): o teste não depende do dia da semana.
+        const target = getApp().agenda.find((i) => i.id === confirmedId)
+        const ref = target?.startsAt ?? target?.dueAt
+        await advanceClock(
+          Math.max(
+            3_600_000,
+            ref ? new Date(ref).getTime() - 3 * 3_600_000 - virtualNow().getTime() : 0,
+          ),
+        )
         const fired = getApp()
           .entries.slice(n)
           .filter((e) => e.body.type === 'buttons' && e.body.text.includes('🔔'))

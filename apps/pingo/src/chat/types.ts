@@ -27,4 +27,6 @@ export interface ChatEntry {
    * No simulador mostramos essas mensagens no chat, marcadas, e os botões agem como o contato.
    */
   audience?: { phone: string; name: string }
+  /** A mensagem foi escrita no WhatsApp e só está sendo espelhada aqui. */
+  via?: 'whatsapp'
 }

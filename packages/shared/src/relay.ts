@@ -1,4 +1,4 @@
-import type { IncomingEvent, OutgoingMessage } from './messages'
+import type { IncomingEvent, PlainMessage, TemplateMessage } from './messages'
 
 /**
  * Contrato HTTP entre o app (RelayChannel) e o relay na AWS.
@@ -9,8 +9,8 @@ import type { IncomingEvent, OutgoingMessage } from './messages'
 export const WA_WINDOW_MS = 24 * 60 * 60 * 1000
 
 /** O que o relay sabe enviar. `card` é convertido pelo app em texto + botões/lista antes. */
-export type WireMessage = Exclude<OutgoingMessage, { type: 'card' }>
-export type WireTemplate = Extract<OutgoingMessage, { type: 'template' }>
+export type WireMessage = PlainMessage | TemplateMessage
+export type WireTemplate = TemplateMessage
 
 export interface PairRequest {
   /** Código de uso único gerado com `pnpm relay:pair-code`. */
