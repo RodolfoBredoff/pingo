@@ -35,3 +35,6 @@ backups/
 # material de referência (vídeo do anúncio original)
 *.mp4
 .shots/
+
+# laboratório PWA: chaves VAPID, chave de acesso e logs locais
+apps/pwa-lab/.lab/

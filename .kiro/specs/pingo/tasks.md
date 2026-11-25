@@ -6,13 +6,17 @@ Regras de ouro desta etapa: **provar o risco antes de construir** (Fase 6) e **c
 
 ## Roteiro de amanhã (começa aqui)
 
-1. **6.0 Ambiente.** Rode `pnpm android:doctor` e resolva o que aparecer, na ordem. O Rust já está pronto (os 4 alvos Android foram instalados). Falta o Android Studio e o celular.
-2. **6.1 Protótipo 1.** O app abre no celular via USB.
-3. **6.2 Protótipo 2.** Compartilhar uma foto e uma nota de voz do WhatsApp para o app.
-4. **6.3 Protótipo 3.** Notificação agendada que sobrevive ao app fechado e ao reinício.
-5. **Parada de verificação:** se 6.2 ou 6.3 falharem sem plano B, paramos e reavaliamos antes de seguir.
+**Estado ao fim de 24/11/2026**
+- **Ambiente Android pronto, menos o celular.** Android Studio, SDK, NDK `30.0.16248370` e os 4 alvos Rust estão instalados; `JAVA_HOME`, `ANDROID_HOME` e `NDK_HOME` estão no `~/.zshrc`. O emulador e a imagem de sistema foram removidos (disco). `adb devices` ainda vem vazio: o celular não foi conectado. `pnpm android:doctor` só reclama disso.
+- **Protótipo PWA montado e verificado no Mac** (`apps/pwa-lab`). Falta rodar no celular. O túnel e o servidor estão **desligados**.
+- **Decisão pendente: PWA × app nativo (Tauri).** O PWA chega ao beta com menos atrito (um link, sem APK, sem toolchain), mas **não agenda aviso local**: os lembretes precisam de um servidor de push. O nativo agenda localmente, mas pede toolchain, plugin Kotlin e instalação de APK.
 
-**O que preciso de você amanhã:** o celular Android com cabo USB, a opção "Depuração USB" ligada (Configurações → Sobre o telefone → toque 7 vezes em "Número da versão" → Opções do desenvolvedor), e o Android Studio instalado e aberto uma vez.
+**Amanhã, nesta ordem**
+1. **Teste do PWA no celular (Fase 6B).** Seguir o README de `apps/pwa-lab` (servidor, túnel, link/QR; 3 comandos). O celular reporta os resultados ao meu terminal.
+2. **Decidir PWA × nativo** com os números do teste (critérios na 6B.6).
+3. **Se nativo:** conectar o celular por cabo (Depuração USB) e seguir a Fase 6 (6.1 em diante). **Se PWA:** reescrever as Fases 7 a 13 para PWA (camada de plataforma web, servidor de push, hospedagem estática).
+
+**O que preciso de você amanhã:** o celular Android (com o Chrome) para o teste do PWA. O cabo só se a decisão for pelo nativo.
 
 ## Fase 0: Fundações (concluída)
 - [x] 0.1 Instalar pnpm; criar monorepo (`apps/pingo`, `apps/relay`, `packages/core`, `packages/shared`) com TypeScript, ESLint e Prettier
@@ -102,6 +106,18 @@ Cada protótipo é pequeno, descartável e termina com uma decisão registrada e
 - [ ] 6.6 **Protótipo 6: áudio do WhatsApp (OGG/Opus).** Decodificar na WebView (`toWav`) ou enviar o OGG direto ao modelo (já medido: 3/3 com Gemini Flash Lite). Escolher o caminho mais simples que funciona.
 - [ ] 6.7 **Protótipo 7: Auto Backup.** Ativar, usar o app, forçar backup e restauração (`adb shell bmgr`). Pronto quando se sabe se o banco volta e se as chaves ficam de fora.
 - [ ] 6.8 Registrar resultados e decisões em `design.md` (§5, §6, §8.4, §12) e ajustar esta lista.
+
+## Fase 6B: Protótipo PWA (alternativa à Fase 6; decide o caminho)
+`apps/pwa-lab` é descartável e não é o app. Resumo do que mede e o que já foi verificado está no README dele.
+- [x] 6B.0 Laboratório montado e **verificado no Chrome do Mac** (24/11/2026): SQLite WASM + OPFS grava 1000 linhas e mantém depois de recarregar; o service worker intercepta o POST do Compartilhar e guarda texto e PDF; permissão e inscrição de push funcionam (FCM aceitou o envio, 201). Corrigido no caminho: a tela travava na primeira abertura esperando a inscrição de push
+- [ ] 6B.1 Instalar no celular (Chrome → Instalar app) e confirmar que abre como app e se o armazenamento fica permanente
+- [ ] 6B.2 **Compartilhar** do WhatsApp para o Pingo Lab: texto, foto, PDF e nota de voz, com o app **fechado** e **aberto**. Conferir tipos, tamanhos, bytes e a decodificação do OGG/Opus
+- [ ] 6B.3 **Push**: agendar 2 min, fechar o app e bloquear a tela; medir o atraso; tocar em Feito/Adiar; repetir com 10 min e tela apagada (economia de bateria) e **depois de reiniciar o celular**
+- [ ] 6B.4 **SQLite**: gravar, fechar o app por completo, abrir e conferir as linhas
+- [ ] 6B.5 **Microfone**: gravar 5 s, formato gerado e reprodução
+- [ ] 6B.6 **Decidir.** O PWA segue se: Compartilhar funciona com o app fechado; o push chega em até 5 min em quase todos os testes, inclusive com a tela bloqueada e após reiniciar; o banco persiste; o microfone grava. Se o push falhar de forma frequente, o PWA sai e vamos de nativo. Registrar o resultado em `design.md`
+- [ ] 6B.7 **Se o PWA vencer:** estimar o custo do servidor de push (Lambda + EventBridge Scheduler + DynamoDB; o payload leva só o id) e reescrever as Fases 7 a 13 para PWA: banco `sqlite-wasm` no driver do Drizzle, cofre da chave com WebCrypto, backup pelo Compartilhar do sistema, notificações pelo service worker, hospedagem estática (ex.: Cloudflare Pages ou GitHub Pages), e o que fazer no iPhone (sem Compartilhar)
+- **Limitações já conhecidas do PWA:** sem aviso local agendado (precisa de servidor); iPhone não recebe Compartilhar (Safari); se a pessoa limpar os dados do Chrome, o banco some; sem Keystore (a chave do OpenRouter fica protegida só pelo navegador); exige um endereço público estático
 
 ## Fase 7: Alicerce Android (R8)
 - [ ] 7.1 Projeto Android gerado e **versionado** (`src-tauri/gen/android` no git; ajustar o `.gitignore`)

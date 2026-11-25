@@ -11,6 +11,9 @@ export default tseslint.config(
       '**/cdk.out/**',
       '**/src-tauri/target/**',
       '**/src-tauri/gen/**',
+      // protótipo descartável do PWA: scripts de navegador e de service worker
+      'apps/pwa-lab/public/**',
+      'apps/pwa-lab/scripts/**',
     ],
   },
   js.configs.recommended,

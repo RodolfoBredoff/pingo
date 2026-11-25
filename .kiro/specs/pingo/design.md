@@ -385,6 +385,7 @@ Atenção: o projeto Android gerado pelo Tauri (`src-tauri/gen/android`) **preci
 8. Conta AWS: `publishing` (025843049355). Região do servidor de IA a decidir.
 
 **Em aberto**
+0. **PWA × app nativo (Tauri).** Um protótipo de PWA (`apps/pwa-lab`, tarefas 6B) decide. O PWA recebe o Compartilhar (Android) e instala por link, mas **não agenda aviso local**: os lembretes passam a depender de um servidor de push (centavos na AWS, payload só com o id). O nativo agenda localmente e é mais robusto, mas pede toolchain, plugin Kotlin e APK. Os dois podem se combinar (PWA agora, empacotar depois)
 1. Identificador do app (`applicationId`): usar `br.com.pingo.app`? Não muda depois de publicar.
 2. Nome "Pingo" disponível na Play? Mascote ou ilustração própria (não reaproveitar o pato do vídeo).
 3. Região do servidor de IA (preço × latência) e se usa API Gateway HTTP ou URL de função.

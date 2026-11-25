@@ -1,0 +1,20 @@
+{
+  "name": "@pingo/pwa-lab",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Protótipo descartável: valida PWA no celular (Compartilhar, push agendado, SQLite no navegador, microfone). Ver README.",
+  "scripts": {
+    "start": "node server.mjs",
+    "check": "node scripts/browser-check.mjs",
+    "link": "node scripts/link.mjs"
+  },
+  "dependencies": {
+    "@sqlite.org/sqlite-wasm": "3.54.1-build1",
+    "web-push": "^4.0.0"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.18.1",
+    "qrcode": "^1.5.4"
+  }
+}
