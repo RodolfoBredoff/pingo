@@ -173,13 +173,16 @@ body {
   border-radius: 12px;
 }
 
-button {
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
-}
-button:disabled {
-  cursor: not-allowed;
+/* Na camada base, para não vencer utilitários como text-bg e text-white. */
+@layer base {
+  button {
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
 }
 
 /* Quem pede menos movimento não vê a deriva do fundo nem pulsos. */

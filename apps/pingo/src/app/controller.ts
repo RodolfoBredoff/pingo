@@ -113,10 +113,9 @@ export async function setReduceMotion(on: boolean) {
 export function initApp(): Promise<void> {
   initPromise ??= (async () => {
     try {
-      if (import.meta.env.DEV) {
-        // Só em desenvolvimento: copia a chave do .env.local para o keychain, se ainda não houver.
-        await invoke('dev_seed_openrouter_key').catch(() => undefined)
-      }
+      // Só faz algo em build de depuração: no Mac copia a chave do .env.local para o keychain;
+      // no Android importa a chave que o desenvolvedor deixou pelo cabo. Em produção devolve false.
+      await invoke('dev_seed_openrouter_key').catch(() => undefined)
       db = (await openDatabase()).db
 
       const theme = ((await getSetting('theme')) ?? 'auto') as ThemeMode

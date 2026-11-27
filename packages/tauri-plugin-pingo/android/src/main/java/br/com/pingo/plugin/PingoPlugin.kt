@@ -2,6 +2,8 @@ package br.com.pingo.plugin
 
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.ApplicationInfo
+import java.io.File
 import android.webkit.WebView
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
@@ -30,6 +32,31 @@ class PingoPlugin(private val activity: Activity) : Plugin(activity) {
     // Partida a quente: o app já estava aberto (launchMode singleTask).
     override fun onNewIntent(intent: Intent) {
         shares.ingest(intent)
+    }
+
+    /**
+     * SÓ EM APK DE DEPURAÇÃO: se existir `files/dev_seed_openrouter_key`, guarda o conteúdo no cofre
+     * e apaga o arquivo. Serve para o desenvolvedor entregar a chave pelo cabo (adb run-as) sem digitar.
+     * Em APK de produção (não depurável) nunca lê nada.
+     */
+    @Command
+    fun devSeedKey(invoke: Invoke) {
+        val out = JSObject()
+        try {
+            val debuggable = (activity.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+            val file = File(activity.filesDir, "dev_seed_openrouter_key")
+            if (debuggable && file.exists()) {
+                val value = file.readText().trim()
+                file.delete()
+                if (value.isNotEmpty()) vault.set("openrouter_api_key", value)
+                out.put("seeded", value.isNotEmpty())
+            } else {
+                out.put("seeded", false)
+            }
+            invoke.resolve(out)
+        } catch (e: Exception) {
+            invoke.reject(e.message ?: "falha ao semear a chave")
+        }
     }
 
     @Command

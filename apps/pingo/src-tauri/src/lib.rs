@@ -124,7 +124,11 @@ fn dev_log(line: String) {
 /// `.env.local` (na raiz do repositório). Em builds de release este comando não faz nada.
 /// O valor nunca é impresso nem devolvido ao front-end.
 #[tauri::command]
-fn dev_seed_openrouter_key() -> Result<bool, String> {
+fn dev_seed_openrouter_key(app: tauri::AppHandle) -> Result<bool, String> {
+    #[cfg(not(all(debug_assertions, target_os = "android")))]
+    let _ = &app;
+    #[cfg(all(debug_assertions, target_os = "android"))]
+    return app.pingo().dev_seed_key();
     #[cfg(all(debug_assertions, not(target_os = "android")))]
     {
         let entry = entry("openrouter_api_key")?;

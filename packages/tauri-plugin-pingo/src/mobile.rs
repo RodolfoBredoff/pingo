@@ -92,4 +92,16 @@ impl<R: Runtime> Pingo<R> {
     pub fn discard_shared(&self, path: &str) -> Result<(), String> {
         std::fs::remove_file(self.shared_path(path)?).map_err(|e| e.to_string())
     }
+
+    /// Só em APK de depuração: importa a chave deixada em `files/dev_seed_openrouter_key`.
+    pub fn dev_seed_key(&self) -> Result<bool, String> {
+        #[derive(Deserialize)]
+        struct Seeded {
+            seeded: bool,
+        }
+        self.handle
+            .run_mobile_plugin::<Seeded>("devSeedKey", serde_json::json!({}))
+            .map(|r| r.seeded)
+            .map_err(|e| e.to_string())
+    }
 }
