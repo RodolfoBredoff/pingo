@@ -7,7 +7,8 @@ coverage/
 
 # Tauri / Rust
 **/src-tauri/target/
-**/src-tauri/gen/
+# O projeto Android gerado (src-tauri/gen/android) VAI para o git: leva o manifesto e o código nativo.
+**/src-tauri/gen/schemas/
 
 # AWS CDK
 cdk.out/
