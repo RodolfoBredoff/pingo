@@ -3410,6 +3410,7 @@ dependencies = [
  "tauri-plugin-notification",
  "tauri-plugin-opener",
  "tauri-plugin-persisted-scope",
+ "tauri-plugin-pingo",
  "tauri-plugin-sql",
 ]
 
@@ -5323,6 +5324,16 @@ dependencies = [
  "tauri",
  "tauri-plugin-fs",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "tauri-plugin-pingo"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
 ]
 
 [[package]]

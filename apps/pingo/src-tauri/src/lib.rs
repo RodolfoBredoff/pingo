@@ -1,4 +1,7 @@
+#[cfg(not(target_os = "android"))]
 use keyring::Entry;
+#[cfg(target_os = "android")]
+use tauri_plugin_pingo::PingoExt;
 
 /// Nome do serviço no keychain do sistema (macOS Keychain, Credential Manager, Secret Service).
 const SERVICE: &str = "br.com.pingo.app";
@@ -6,19 +9,29 @@ const SERVICE: &str = "br.com.pingo.app";
 /// Apenas estes segredos podem ser lidos/gravados pelo front-end.
 const ALLOWED_KEYS: &[&str] = &["openrouter_api_key", "relay_token", "spike_test"];
 
-fn entry(key: &str) -> Result<Entry, String> {
-    if !ALLOWED_KEYS.contains(&key) {
-        return Err(format!("segredo não permitido: {key}"));
+fn check_allowed(key: &str) -> Result<(), String> {
+    if ALLOWED_KEYS.contains(&key) {
+        Ok(())
+    } else {
+        Err(format!("segredo não permitido: {key}"))
     }
+}
+
+#[cfg(not(target_os = "android"))]
+fn entry(key: &str) -> Result<Entry, String> {
+    check_allowed(key)?;
     Entry::new(SERVICE, key).map_err(|e| e.to_string())
 }
 
+// No macOS o segredo fica no Keychain; no Android, no Keystore (plugin do Pingo).
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 fn secret_set(key: String, value: String) -> Result<(), String> {
     entry(&key)?.set_password(&value).map_err(|e| e.to_string())
 }
 
 /// Devolve `None` quando o segredo ainda não existe.
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 fn secret_get(key: String) -> Result<Option<String>, String> {
     match entry(&key)?.get_password() {
@@ -28,12 +41,73 @@ fn secret_get(key: String) -> Result<Option<String>, String> {
     }
 }
 
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 fn secret_delete(key: String) -> Result<(), String> {
     match entry(&key)?.delete_credential() {
         Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
         Err(e) => Err(e.to_string()),
     }
+}
+
+#[cfg(target_os = "android")]
+#[tauri::command]
+fn secret_set(app: tauri::AppHandle, key: String, value: String) -> Result<(), String> {
+    check_allowed(&key)?;
+    app.pingo().secret_set(&key, &value)
+}
+
+#[cfg(target_os = "android")]
+#[tauri::command]
+fn secret_get(app: tauri::AppHandle, key: String) -> Result<Option<String>, String> {
+    check_allowed(&key)?;
+    app.pingo().secret_get(&key)
+}
+
+#[cfg(target_os = "android")]
+#[tauri::command]
+fn secret_delete(app: tauri::AppHandle, key: String) -> Result<(), String> {
+    check_allowed(&key)?;
+    app.pingo().secret_delete(&key)
+}
+
+// ---- Compartilhar (Android): o menu "Compartilhar" de qualquer app entrega texto e arquivos ao Pingo.
+// No computador não existe; os comandos respondem "nada recebido" para o JavaScript ser o mesmo.
+
+#[cfg(target_os = "android")]
+#[tauri::command]
+fn shared_take(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    app.pingo().take_shared()
+}
+
+#[cfg(target_os = "android")]
+#[tauri::command]
+fn shared_read(app: tauri::AppHandle, path: String) -> Result<tauri::ipc::Response, String> {
+    app.pingo().read_shared(&path).map(tauri::ipc::Response::new)
+}
+
+#[cfg(target_os = "android")]
+#[tauri::command]
+fn shared_discard(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    app.pingo().discard_shared(&path)
+}
+
+#[cfg(not(target_os = "android"))]
+#[tauri::command]
+fn shared_take() -> Result<serde_json::Value, String> {
+    Ok(serde_json::json!({ "dir": "", "items": [] }))
+}
+
+#[cfg(not(target_os = "android"))]
+#[tauri::command]
+fn shared_read(_path: String) -> Result<tauri::ipc::Response, String> {
+    Err("Compartilhar só existe no Android".into())
+}
+
+#[cfg(not(target_os = "android"))]
+#[tauri::command]
+fn shared_discard(_path: String) -> Result<(), String> {
+    Ok(())
 }
 
 /// Só em builds de desenvolvimento: imprime no terminal do `tauri dev` (verificações da Fase 0).
@@ -51,7 +125,7 @@ fn dev_log(line: String) {
 /// O valor nunca é impresso nem devolvido ao front-end.
 #[tauri::command]
 fn dev_seed_openrouter_key() -> Result<bool, String> {
-    #[cfg(debug_assertions)]
+    #[cfg(all(debug_assertions, not(target_os = "android")))]
     {
         let entry = entry("openrouter_api_key")?;
         if entry.get_password().is_ok() {
@@ -72,7 +146,7 @@ fn dev_seed_openrouter_key() -> Result<bool, String> {
         }
         Ok(false)
     }
-    #[cfg(not(debug_assertions))]
+    #[cfg(any(not(debug_assertions), target_os = "android"))]
     {
         Ok(false)
     }
@@ -129,6 +203,7 @@ fn setup_tray(app: &tauri::App) -> tauri::Result<()> {
 pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_pingo::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         // Fala com o relay na AWS sem as regras de CORS do navegador; só para os endereços liberados na capability.
@@ -175,6 +250,9 @@ pub fn run() {
             secret_set,
             secret_get,
             secret_delete,
+            shared_take,
+            shared_read,
+            shared_discard,
             dev_log,
             dev_seed_openrouter_key
         ])

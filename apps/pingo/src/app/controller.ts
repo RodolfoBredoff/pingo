@@ -50,6 +50,7 @@ import { openDatabase } from '../db/tauri-db'
 import { secrets } from '../db/secrets'
 import { makeThumb, toWav } from '../lib/audio'
 import { LazyExtractor } from './lazy-extractor'
+import { startShareIntake } from './share-intake'
 import { getApp, goTab, setApp, showToast, type ThemeMode } from './store'
 
 const log = createLogger({ scope: 'app' })
@@ -274,6 +275,14 @@ async function startRuntime(name: string, phone: string, tz: string) {
   await refreshAll()
 
   if (entries.length === 0) await greet()
+
+  // Compartilhar (Android): o que chegar pelo menu do sistema segue o mesmo caminho do chat.
+  startShareIntake({
+    ready: () => getApp().phase === 'ready' && getApp().hasKey === true,
+    onText: (t) => sendText(t),
+    onFile: (f, caption) => sendFile(f, caption),
+    notify: (t, tone) => showToast(t, tone),
+  })
 }
 
 /** Notificação do sistema para lembretes. Só título e horário; nunca o texto da mensagem original. */
