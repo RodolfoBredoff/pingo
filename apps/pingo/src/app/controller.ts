@@ -50,6 +50,7 @@ import { openDatabase } from '../db/tauri-db'
 import { secrets } from '../db/secrets'
 import { makeThumb, toWav } from '../lib/audio'
 import { LazyExtractor } from './lazy-extractor'
+import { isAndroid, reconcileOsReminders } from './os-reminders'
 import { startShareIntake } from './share-intake'
 import { getApp, goTab, setApp, showToast, type ThemeMode } from './store'
 
@@ -287,6 +288,9 @@ async function startRuntime(name: string, phone: string, tz: string) {
 /** Notificação do sistema para lembretes. Só título e horário; nunca o texto da mensagem original. */
 const systemNotifier: Notifier = {
   async notify(title, body) {
+    // No Android o aviso é o alarme agendado no sistema (os-reminders.ts). Enviar outro aqui
+    // duplicaria. O lembrete continua aparecendo na conversa.
+    if (isAndroid) return
     try {
       if (await isPermissionGranted()) sendNotification({ title, body })
     } catch (e) {
@@ -336,6 +340,20 @@ export async function refreshAll() {
   ])
   setApp({ statuses, agenda, contacts })
   await refreshSpend()
+  syncOsReminders()
+}
+
+/** Android: alinha os alarmes do sistema com o banco, sem travar a tela. */
+function syncOsReminders() {
+  if (!rt) return
+  reconcileOsReminders(db, rt.owner.tz, now())
+    .then((r) => {
+      if (r)
+        console.info(
+          `[lembretes] agendados ${r.scheduled}, cancelados ${r.cancelled}, total ${r.total}`,
+        )
+    })
+    .catch((e) => log.warn('lembretes do sistema não sincronizados', { error: String(e) }))
 }
 
 export async function refreshSpend() {
