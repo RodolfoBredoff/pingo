@@ -4,19 +4,19 @@
 
 Regras de ouro desta etapa: **provar o risco antes de construir** (Fase 6) e **custo mínimo na AWS** (hoje nada roda lá; ver R13).
 
-## Roteiro de amanhã (começa aqui)
+## Onde paramos (começa aqui)
 
-**Estado ao fim de 24/11/2026**
-- **Ambiente Android pronto, menos o celular.** Android Studio, SDK, NDK `30.0.16248370` e os 4 alvos Rust estão instalados; `JAVA_HOME`, `ANDROID_HOME` e `NDK_HOME` estão no `~/.zshrc`. O emulador e a imagem de sistema foram removidos (disco). `adb devices` ainda vem vazio: o celular não foi conectado. `pnpm android:doctor` só reclama disso.
-- **Protótipo PWA montado e verificado no Mac** (`apps/pwa-lab`). Falta rodar no celular. O túnel e o servidor estão **desligados**.
-- **Decisão pendente: PWA × app nativo (Tauri).** O PWA chega ao beta com menos atrito (um link, sem APK, sem toolchain), mas **não agenda aviso local**: os lembretes precisam de um servidor de push. O nativo agenda localmente, mas pede toolchain, plugin Kotlin e instalação de APK.
+**Estado em 27/11/2026.** Decisão tomada na prática: **app nativo (Tauri) no Android**; o PWA (Fase 6B) não foi testado e fica como alternativa guardada. O app roda num Redmi Note 11 (Android 13) ligado por cabo. Já funcionam: chave no Keystore, Compartilhar de texto (app aberto), IA extraindo cartões, agenda, e **lembretes agendados no sistema** (chegaram com o app fechado e a tela travada). Chave do OpenRouter entra no aparelho de teste por `adb run-as` a partir do `.env.local` (só build de depuração).
 
-**Amanhã, nesta ordem**
-1. **Teste do PWA no celular (Fase 6B).** Seguir o README de `apps/pwa-lab` (servidor, túnel, link/QR; 3 comandos). O celular reporta os resultados ao meu terminal.
-2. **Decidir PWA × nativo** com os números do teste (critérios na 6B.6).
-3. **Se nativo:** conectar o celular por cabo (Depuração USB) e seguir a Fase 6 (6.1 em diante). **Se PWA:** reescrever as Fases 7 a 13 para PWA (camada de plataforma web, servidor de push, hospedagem estática).
+**Teste guardado, ainda por fazer: reiniciar o celular com alarme pendente (6.3).**
+1. Mover um lembrete para daqui a ~6 min: `adb shell am force-stop br.com.pingo.app`; copiar `pingo.db`, `-wal`, `-shm` com `adb exec-out run-as br.com.pingo.app cat <arquivo>`; no Mac, `sqlite3 pingo.db "update reminders set remind_at='<UTC +6 min>' where status='pending' ..."` e `pragma wal_checkpoint(TRUNCATE)`; apagar `-wal`/`-shm` no aparelho e devolver o `pingo.db` com `run-as ... sh -c 'cat > pingo.db'`; abrir o app uma vez (ele agenda); conferir com `adb shell dumpsys alarm | grep -A2 "Alarm{.*br.com.pingo.app}"`.
+2. `adb reboot`. A pessoa só desbloqueia e **não abre o Pingo**.
+3. Passa se a notificação chegar sozinha. Se não chegar, o plano B da 6.3 é um receptor de reinício no plugin próprio que reagenda a partir do banco.
+4. Depois: ~15 min parado (economia de bateria) e ações Feito/Adiar.
 
-**O que preciso de você amanhã:** o celular Android (com o Chrome) para o teste do PWA. O cabo só se a decisão for pelo nativo.
+**Também falta no Fase 6:** 6.2 (foto, PDF, áudio do WhatsApp, início a frio), 6.5 (microfone), 6.6 (OGG/Opus), 6.7 (Auto Backup). Defeitos visuais anotados: na Agenda o botão ✕ do cartão fica cortado na borda direita, e o título do dia sai como "Quinta-Feira, 3 De Dezembro" com faixa escura.
+
+**Pergunta em aberto (27/11):** como escalar sem chave de IA por pessoa. Opções analisadas no `design.md` (Apêndice A) e na conversa: servidor de IA próprio, login com OpenRouter (cada pessoa paga o seu), IA no aparelho. Nada decidido.
 
 ## Fase 0: Fundações (concluída)
 - [x] 0.1 Instalar pnpm; criar monorepo (`apps/pingo`, `apps/relay`, `packages/core`, `packages/shared`) com TypeScript, ESLint e Prettier
