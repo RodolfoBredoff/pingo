@@ -19,6 +19,19 @@ class SecretArgs {
     var value: String? = null
 }
 
+@InvokeArg
+class ReminderArg {
+    var id: Int = 0
+    var atMs: Long = 0
+    var title: String = ""
+    var body: String = ""
+}
+
+@InvokeArg
+class RemindersArgs {
+    var items: List<ReminderArg> = emptyList()
+}
+
 @TauriPlugin
 class PingoPlugin(private val activity: Activity) : Plugin(activity) {
     private val vault = SecretVault(activity.applicationContext)
@@ -56,6 +69,26 @@ class PingoPlugin(private val activity: Activity) : Plugin(activity) {
             invoke.resolve(out)
         } catch (e: Exception) {
             invoke.reject(e.message ?: "falha ao semear a chave")
+        }
+    }
+
+    /**
+     * Recebe a lista COMPLETA dos próximos lembretes e alinha o sistema com ela (ver Reminders.kt).
+     * Devolve quantos foram agendados, cancelados e entregues com atraso.
+     */
+    @Command
+    fun remindersSync(invoke: Invoke) {
+        try {
+            val args = invoke.parseArgs(RemindersArgs::class.java)
+            val wanted = args.items.map { Reminder(it.id, it.atMs, it.title, it.body) }
+            val r = ReminderScheduler.sync(activity.applicationContext, wanted)
+            val out = JSObject()
+            out.put("scheduled", r.getInt("scheduled"))
+            out.put("cancelled", r.getInt("cancelled"))
+            out.put("late", r.getInt("late"))
+            invoke.resolve(out)
+        } catch (e: Exception) {
+            invoke.reject(e.message ?: "falha ao agendar os lembretes")
         }
     }
 

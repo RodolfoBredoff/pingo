@@ -110,6 +110,26 @@ fn shared_discard(_path: String) -> Result<(), String> {
     Ok(())
 }
 
+// ---- Lembretes no sistema (Android): o JavaScript manda a lista completa dos próximos lembretes
+// e o plugin guarda, agenda e refaz tudo depois de reiniciar. No computador os avisos saem do
+// relógio do app, então aqui só responde que não há nada a fazer.
+
+#[cfg(target_os = "android")]
+#[tauri::command]
+fn os_reminders_sync(
+    app: tauri::AppHandle,
+    items: Vec<tauri_plugin_pingo::ReminderItem>,
+) -> Result<serde_json::Value, String> {
+    use tauri_plugin_pingo::PingoExt;
+    app.pingo().reminders_sync(&items)
+}
+
+#[cfg(not(target_os = "android"))]
+#[tauri::command]
+fn os_reminders_sync(_items: Vec<serde_json::Value>) -> Result<serde_json::Value, String> {
+    Ok(serde_json::json!({ "scheduled": 0, "cancelled": 0, "late": 0 }))
+}
+
 /// Só em builds de desenvolvimento: imprime no terminal do `tauri dev` (verificações da Fase 0).
 /// Em release não faz nada. Nunca enviar conteúdo de mensagens por aqui.
 #[tauri::command]
@@ -257,6 +277,7 @@ pub fn run() {
             shared_take,
             shared_read,
             shared_discard,
+            os_reminders_sync,
             dev_log,
             dev_seed_openrouter_key
         ])

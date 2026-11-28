@@ -26,6 +26,7 @@ import {
   pairWhatsApp,
   pickBackupToImport,
   readCaps,
+  readUsageByRole,
   runBackupIfDue,
   setBackupAuto,
   setBackupEvery,
@@ -44,11 +45,19 @@ import {
   testKey,
   type KeyInfo,
 } from '../app/controller'
+import type { UsageByRole } from '@pingo/core'
 import { useApp, type ThemeMode, type WhatsAppStatus } from '../app/store'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { spring, springBouncy } from '../lib/motion'
 
 const usd = (n: number) => `US$ ${n.toFixed(n < 0.1 ? 4 : 2)}`
+
+const ROLE_LABEL: Record<string, string> = {
+  text: 'Texto',
+  vision: 'Imagem',
+  pdf: 'PDF',
+  audio: 'Áudio',
+}
 
 export function SettingsView() {
   const hasKey = useApp((s) => s.hasKey)
@@ -65,10 +74,15 @@ export function SettingsView() {
   const [armed, setArmed] = useState(false)
   const config = loadModelsConfig()
 
+  const [byRole, setByRole] = useState<UsageByRole[]>([])
   useEffect(() => {
     void readCaps().then(setCaps)
     void refreshSpend()
   }, [])
+  // O gasto muda a cada chamada de IA; o resumo por tipo acompanha.
+  useEffect(() => {
+    void readUsageByRole().then(setByRole)
+  }, [spend])
 
   async function check(candidate?: string) {
     setBusy(true)
@@ -158,6 +172,25 @@ export function SettingsView() {
       <Section title="Gastos com IA" hint="Quando o teto é atingido, o Pingo para de chamar a IA.">
         <Meter label="Hoje" value={spend.today} cap={caps.daily} />
         <Meter label="Este mês" value={spend.month} cap={caps.monthly} />
+        {byRole.length > 0 && (
+          <div className="mt-3">
+            <div className="mb-1 text-[13px] font-semibold">Custo médio por tipo</div>
+            <ul className="space-y-1 text-[13px]">
+              {byRole.map((r) => (
+                <li key={r.role} className="flex items-baseline justify-between gap-3">
+                  <span>
+                    {ROLE_LABEL[r.role] ?? r.role}{' '}
+                    <span className="text-ink/50">
+                      ({r.calls} {r.calls === 1 ? 'chamada' : 'chamadas'}, {r.avgInputTokens}+
+                      {r.avgOutputTokens} tokens)
+                    </span>
+                  </span>
+                  <span className="font-mono tabular-nums text-ink/65">{usd(r.avgUsd)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Num
             label="Teto diário (US$)"

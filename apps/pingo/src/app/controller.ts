@@ -33,6 +33,8 @@ import {
   type Channel,
   type Notifier,
   type PingoDb,
+  type UsageByRole,
+  usageByRole,
 } from '@pingo/core'
 import { join } from '@tauri-apps/api/path'
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
@@ -350,10 +352,15 @@ function syncOsReminders() {
     .then((r) => {
       if (r)
         console.info(
-          `[lembretes] agendados ${r.scheduled}, cancelados ${r.cancelled}, total ${r.total}`,
+          `[lembretes] agendados ${r.scheduled}, cancelados ${r.cancelled}, atrasados ${r.late}`,
         )
     })
     .catch((e) => log.warn('lembretes do sistema não sincronizados', { error: String(e) }))
+}
+
+/** Custo médio por tipo de chamada (texto, imagem, PDF, áudio), para medir o piloto. */
+export async function readUsageByRole(): Promise<UsageByRole[]> {
+  return usageByRole(db)
 }
 
 export async function refreshSpend() {

@@ -12,7 +12,7 @@ use tauri::Manager;
 #[cfg(target_os = "android")]
 mod mobile;
 #[cfg(target_os = "android")]
-pub use mobile::Pingo;
+pub use mobile::{Pingo, ReminderItem};
 
 /// `app.pingo()`: acesso ao plugin (só no Android).
 #[cfg(target_os = "android")]

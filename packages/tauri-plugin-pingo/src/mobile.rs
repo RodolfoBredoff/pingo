@@ -10,6 +10,16 @@ pub struct Pingo<R: Runtime> {
     shared_dir: Mutex<Option<PathBuf>>,
 }
 
+/// Um lembrete a agendar: só título e horário (nunca o texto da mensagem original).
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ReminderItem {
+    pub id: i32,
+    pub at_ms: i64,
+    pub title: String,
+    pub body: String,
+}
+
 #[derive(Serialize)]
 struct SecretArgs<'a> {
     key: &'a str,
@@ -91,6 +101,17 @@ impl<R: Runtime> Pingo<R> {
 
     pub fn discard_shared(&self, path: &str) -> Result<(), String> {
         std::fs::remove_file(self.shared_path(path)?).map_err(|e| e.to_string())
+    }
+
+    /// Manda a lista COMPLETA dos próximos lembretes. O plugin guarda, agenda os alarmes e os
+    /// refaz depois de reiniciar. Devolve `{ scheduled, cancelled, late }`.
+    pub fn reminders_sync(&self, items: &[ReminderItem]) -> Result<serde_json::Value, String> {
+        self.handle
+            .run_mobile_plugin::<serde_json::Value>(
+                "remindersSync",
+                serde_json::json!({ "items": items }),
+            )
+            .map_err(|e| e.to_string())
     }
 
     /// Só em APK de depuração: importa a chave deixada em `files/dev_seed_openrouter_key`.

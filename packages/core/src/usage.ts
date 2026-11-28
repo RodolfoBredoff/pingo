@@ -42,6 +42,47 @@ export async function spentSince(db: PingoDb, sinceIso: string): Promise<number>
   return Number(rows[0]?.total ?? 0)
 }
 
+export interface UsageByRole {
+  /** Função da IA (`text`, `vision`, `pdf`, `audio`). */
+  role: string
+  calls: number
+  avgInputTokens: number
+  avgOutputTokens: number
+  totalUsd: number
+  avgUsd: number
+}
+
+/**
+ * Custo médio por tipo de chamada, para medir no piloto quanto cada extração custa (go-live,
+ * Apêndice A). Só números: nada do conteúdo das mensagens entra na tabela `usage`.
+ */
+export async function usageByRole(db: PingoDb): Promise<UsageByRole[]> {
+  const rows = await db
+    .select({
+      role: usage.role,
+      calls: sql<number>`count(*)`,
+      avgIn: sql<number>`coalesce(avg(${usage.inputTokens}), 0)`,
+      avgOut: sql<number>`coalesce(avg(${usage.outputTokens}), 0)`,
+      total: sql<number>`coalesce(sum(${usage.costUsd}), 0)`,
+    })
+    .from(usage)
+    .groupBy(usage.role)
+  return rows
+    .map((r) => {
+      const calls = Number(r.calls)
+      const total = Number(r.total)
+      return {
+        role: r.role,
+        calls,
+        avgInputTokens: Math.round(Number(r.avgIn)),
+        avgOutputTokens: Math.round(Number(r.avgOut)),
+        totalUsd: total,
+        avgUsd: calls > 0 ? total / calls : 0,
+      }
+    })
+    .sort((a, b) => b.totalUsd - a.totalUsd)
+}
+
 /** Tetos do usuário (tabela settings) sobrepõem os padrões do models.json. */
 export async function readBudgetLimits(db: PingoDb, defaults: BudgetLimits): Promise<BudgetLimits> {
   const read = async (key: string, fallback: number) => {
