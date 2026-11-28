@@ -6,17 +6,30 @@ Regras de ouro desta etapa: **provar o risco antes de construir** (Fase 6) e **c
 
 ## Onde paramos (começa aqui)
 
-**Estado em 27/11/2026.** Decisão tomada na prática: **app nativo (Tauri) no Android**; o PWA (Fase 6B) não foi testado e fica como alternativa guardada. O app roda num Redmi Note 11 (Android 13) ligado por cabo. Já funcionam: chave no Keystore, Compartilhar de texto (app aberto), IA extraindo cartões, agenda, e **lembretes agendados no sistema** (chegaram com o app fechado e a tela travada). Chave do OpenRouter entra no aparelho de teste por `adb run-as` a partir do `.env.local` (só build de depuração).
+**Estado em 27/11/2026, à noite.** Caminho decidido: **app nativo (Tauri) no Android**; o PWA (Fase 6B) não foi testado e fica guardado. O app roda num Redmi Note 11 (Android 13, MIUI) ligado por cabo, commit `68ecf42` no GitHub.
 
-**Teste guardado, ainda por fazer: reiniciar o celular com alarme pendente (6.3).**
-1. Mover um lembrete para daqui a ~6 min: `adb shell am force-stop br.com.pingo.app`; copiar `pingo.db`, `-wal`, `-shm` com `adb exec-out run-as br.com.pingo.app cat <arquivo>`; no Mac, `sqlite3 pingo.db "update reminders set remind_at='<UTC +6 min>' where status='pending' ..."` e `pragma wal_checkpoint(TRUNCATE)`; apagar `-wal`/`-shm` no aparelho e devolver o `pingo.db` com `run-as ... sh -c 'cat > pingo.db'`; abrir o app uma vez (ele agenda); conferir com `adb shell dumpsys alarm | grep -A2 "Alarm{.*br.com.pingo.app}"`.
-2. `adb reboot`. A pessoa só desbloqueia e **não abre o Pingo**.
-3. Passa se a notificação chegar sozinha. Se não chegar, o plano B da 6.3 é um receptor de reinício no plugin próprio que reagenda a partir do banco.
-4. Depois: ~15 min parado (economia de bateria) e ações Feito/Adiar.
+**Funciona e foi verificado no aparelho**
+- App abre, onboarding, conversa, SQLite, fontes; barra de status e de gestos respeitadas (insets no `MainActivity`).
+- Chave do OpenRouter no Keystore (plugin `tauri-plugin-pingo`). Entrega no aparelho de teste pelo cabo, só em build de depuração: `.env.local` → `adb shell run-as br.com.pingo.app` gravando `files/dev_seed_openrouter_key` (o app lê, guarda no cofre e apaga o arquivo). Nunca imprimir a chave.
+- Compartilhar **texto** com o app aberto: virou cartões (reunião + "Levar autorização assinada") com lembretes.
+- **Lembretes no sistema (6.3, decidido: plano B):** `Reminders.kt` no plugin próprio. Passou: notificação com o app fechado e tela travada, e **depois de reiniciar o celular**. Antes do primeiro desbloqueio nada dispara (limite do Android). Botões Feito/Adiar ainda não existem na notificação.
+- Resumo de **custo médio por tipo de IA** em Ajustes → Gastos com IA (tabela `usage`, coluna `role`). Primeiro número: texto ≈ US$ 0,000194 por chamada (`gpt-oss-120b`, ~1.400 tokens de entrada, ~900 de saída; 2 chamadas).
 
-**Também falta no Fase 6:** 6.2 (foto, PDF, áudio do WhatsApp, início a frio), 6.5 (microfone), 6.6 (OGG/Opus), 6.7 (Auto Backup). Defeitos visuais anotados: na Agenda o botão ✕ do cartão fica cortado na borda direita, e o título do dia sai como "Quinta-Feira, 3 De Dezembro" com faixa escura.
+**Testes em andamento (feitos pelo dono na noite de 27/11; resultados a ler amanhã)**
+- Compartilhar foto, PDF e áudio para o Pingo; Compartilhar com o app fechado (início a frio); uso geral.
+- Captura de log rodando no Mac: `/tmp/pingo-logcat-20261127.log` (filtro: Tauri/Console, RustStdoutStderr, `[share]`, `[lembretes]`). Só funciona com o cabo ligado e o Mac acordado (`caffeinate` ativo por até 12 h). Se o arquivo sumir (reinício do Mac), vale o que ficou no celular: `adb logcat -d` (buffer pequeno, some ao reiniciar o celular).
+- **O que ler amanhã:** (1) o log acima, procurando `[share]` (tipo, tamanho), `falha` e erros; (2) o banco do celular, que guarda o custo de cada chamada de IA e não depende do log:
+  `adb shell am force-stop br.com.pingo.app`; copiar `pingo.db`, `-wal` e `-shm` com `adb exec-out run-as br.com.pingo.app cat <arquivo>` para uma pasta em `/tmp`; `sqlite3 -header -column pingo.db "select role, model, count(*), round(avg(input_tokens)), round(avg(output_tokens)), round(avg(cost_usd),6) from usage group by role, model;"`. Só leitura: **não devolver o arquivo ao aparelho** sem combinar, para não apagar dados novos. (Para editar lembretes de teste o procedimento é o do item abaixo.)
 
-**Pergunta em aberto (27/11):** como escalar sem chave de IA por pessoa. Opções analisadas no `design.md` (Apêndice A) e na conversa: servidor de IA próprio, login com OpenRouter (cada pessoa paga o seu), IA no aparelho. Nada decidido.
+**Procedimento para mover um lembrete de teste:** `force-stop`; copiar o banco (3 arquivos); `sqlite3 ... update reminders set remind_at='<UTC>' ...; pragma wal_checkpoint(TRUNCATE);`; apagar `-wal`/`-shm` no aparelho; devolver `pingo.db` com `run-as ... sh -c 'cat > pingo.db'`; abrir o app (ele sincroniza); conferir `adb shell dumpsys alarm | grep -A2 "Alarm{.*br.com.pingo.app}"` e `shared_prefs/pingo_reminders.xml`. Instalar APK, `force-stop` e reinício apagam alarmes; o `sync` do app e o receptor de boot refazem.
+
+**Instalar um APK novo (Xiaomi sem SIM):** `cd apps/pingo && pnpm tauri android build --debug --apk --target aarch64 --ci` (com `source ~/.zshrc`); `adb push .../app-universal-debug.apk /sdcard/Download/pingo-debug.apk`; `adb shell am start -a android.intent.action.VIEW -t application/vnd.android.package-archive -d file:///sdcard/Download/pingo-debug.apk`; a pessoa toca em Instalar e Abrir. `adb install` e `adb shell input` são bloqueados.
+
+**Falta na Fase 6:** 6.2 (foto, PDF, áudio do WhatsApp, início a frio; áudio do WhatsApp real exige o WhatsApp de outro aparelho: mandar o `.opus` por Telegram/e-mail para este celular), 6.3 (15 min parado, Feito/Adiar, economia de bateria da Xiaomi), 6.5 (microfone), 6.6 (OGG/Opus), 6.7 (Auto Backup). Depois, 6.8 (registrar no `design.md`) e a Fase 7.
+
+**Defeitos visuais anotados:** na Agenda o botão ✕ do cartão fica cortado na borda direita; o título do dia sai como "Quinta-Feira, 3 De Dezembro" com faixa escura.
+
+**Pergunta em aberto (27/11): como escalar sem chave de IA por pessoa.** Opções: (1) servidor de IA próprio (Apêndice A do `design.md`); (2) "Entrar com OpenRouter" (OAuth PKCE, cada pessoa paga o seu; falta testar a volta para o app por link próprio no Android); (3) IA no aparelho para as partes simples (OCR, voz, regras de data; modelo de linguagem local só em aparelhos recentes). Recomendação: combinar os três, medindo antes o custo por extração no piloto. Nada decidido.
 
 ## Fase 0: Fundações (concluída)
 - [x] 0.1 Instalar pnpm; criar monorepo (`apps/pingo`, `apps/relay`, `packages/core`, `packages/shared`) com TypeScript, ESLint e Prettier
