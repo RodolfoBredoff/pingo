@@ -15,11 +15,17 @@ Regras de ouro desta etapa: **provar o risco antes de construir** (Fase 6) e **c
 - **Lembretes no sistema (6.3, decidido: plano B):** `Reminders.kt` no plugin próprio. Passou: notificação com o app fechado e tela travada, e **depois de reiniciar o celular**. Antes do primeiro desbloqueio nada dispara (limite do Android). Botões Feito/Adiar ainda não existem na notificação.
 - Resumo de **custo médio por tipo de IA** em Ajustes → Gastos com IA (tabela `usage`, coluna `role`). Primeiro número: texto ≈ US$ 0,000194 por chamada (`gpt-oss-120b`, ~1.400 tokens de entrada, ~900 de saída; 2 chamadas).
 
-**Testes em andamento (feitos pelo dono na noite de 27/11; resultados a ler amanhã)**
-- Compartilhar foto, PDF e áudio para o Pingo; Compartilhar com o app fechado (início a frio); uso geral.
-- Captura de log rodando no Mac: `/tmp/pingo-logcat-20261127.log` (filtro: Tauri/Console, RustStdoutStderr, `[share]`, `[lembretes]`). Só funciona com o cabo ligado e o Mac acordado (`caffeinate` ativo por até 12 h). Se o arquivo sumir (reinício do Mac), vale o que ficou no celular: `adb logcat -d` (buffer pequeno, some ao reiniciar o celular).
-- **O que ler amanhã:** (1) o log acima, procurando `[share]` (tipo, tamanho), `falha` e erros; (2) o banco do celular, que guarda o custo de cada chamada de IA e não depende do log:
-  `adb shell am force-stop br.com.pingo.app`; copiar `pingo.db`, `-wal` e `-shm` com `adb exec-out run-as br.com.pingo.app cat <arquivo>` para uma pasta em `/tmp`; `sqlite3 -header -column pingo.db "select role, model, count(*), round(avg(input_tokens)), round(avg(output_tokens)), round(avg(cost_usd),6) from usage group by role, model;"`. Só leitura: **não devolver o arquivo ao aparelho** sem combinar, para não apagar dados novos. (Para editar lembretes de teste o procedimento é o do item abaixo.)
+**Resultado dos testes da noite de 27/11 (detalhes e números em `medicoes.md`; dados brutos locais em `.collected/2026-11-27/`, fora do Git)**
+- O dono anexou **uma imagem e um PDF pelo clipe do app** e digitou três textos. Tudo gerou cartões; sem queda nem ANR.
+- **Compartilhar pelo menu do sistema continua sem teste** (nenhum `[share]` nem intent `SEND` no log). Foto, PDF e áudio pelo Compartilhar, e o app fechado, seguem pendentes (6.2). Áudio não foi testado por nenhum caminho.
+- **Custo:** texto ≈ US$ 0,0001, imagem ≈ US$ 0,00017, **PDF longo = US$ 0,0036 (70 mil tokens, ~34× o texto)** e só rendeu três cartões de confiança 0,1 a 0,2. Precisa de limite de páginas, aviso antes de enviar PDF grande e uma checagem "isto é um recado?" (Fase 8). Uma amostra por tipo: ainda não dá para fixar o limite do plano gratuito.
+- O captador de log (`adb logcat` filtrado) foi encerrado; o aparelho guarda tudo no banco (`usage`, `chat_log`, `items`). Se o celular reiniciar, o buffer de log some, mas o banco não.
+
+**Para amanhã, nesta ordem**
+1. Com o celular ligado e o app aberto: testar o **Compartilhar do sistema** (galeria → foto; Arquivos → PDF pequeno de 1 a 2 páginas; Gravador → áudio) e o **início a frio** (fechar o Pingo pelos recentes e compartilhar um texto). Ler `adb logcat -d | grep "\[share\]"` e o banco.
+2. Decidir o tratamento de **PDF grande** (limite de páginas, aviso, checagem prévia) e registrar no `design.md`.
+3. Terminar o 6.3 (15 min parado, Feito/Adiar na notificação, economia de bateria da Xiaomi), depois 6.5 (microfone), 6.6 (OGG/Opus do WhatsApp via arquivo enviado por Telegram/e-mail) e 6.7 (Auto Backup).
+4. Corrigir os dois defeitos visuais da Agenda e seguir para o 6.8 (registrar no `design.md`) e a Fase 7.
 
 **Procedimento para mover um lembrete de teste:** `force-stop`; copiar o banco (3 arquivos); `sqlite3 ... update reminders set remind_at='<UTC>' ...; pragma wal_checkpoint(TRUNCATE);`; apagar `-wal`/`-shm` no aparelho; devolver `pingo.db` com `run-as ... sh -c 'cat > pingo.db'`; abrir o app (ele sincroniza); conferir `adb shell dumpsys alarm | grep -A2 "Alarm{.*br.com.pingo.app}"` e `shared_prefs/pingo_reminders.xml`. Instalar APK, `force-stop` e reinício apagam alarmes; o `sync` do app e o receptor de boot refazem.
 

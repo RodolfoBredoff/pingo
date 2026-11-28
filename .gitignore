@@ -39,3 +39,6 @@ backups/
 
 # laboratório PWA: chaves VAPID, chave de acesso e logs locais
 apps/pwa-lab/.lab/
+
+# coletas locais de teste (logs e dados do aparelho; nunca versionar)
+.collected/
